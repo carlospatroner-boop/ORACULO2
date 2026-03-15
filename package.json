@@ -1,0 +1,12 @@
+{
+  "name": "oraculo-ancestral",
+  "version": "1.0.0",
+  "description": "Oráculo Ancestral del Ecuador",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx -y serve web"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
