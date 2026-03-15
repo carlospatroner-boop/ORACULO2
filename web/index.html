@@ -3,165 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Oráculo Ancestral</title>
+    <title>Oráculo Ancestral - Wisdom of the Ages</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
 
-    <!-- EL MAPA ES EL FONDO AHORA -->
+    <!-- EL MAPA ES EL FONDO -->
     <div id="map-background"></div>
-
-    <!-- OVERLAY DINÁMICO DE CLIMA -->
     <div id="climate-overlay"></div>
-
-    <!-- GOTAS DE LLUVIA -->
     <div id="rain-container"></div>
-
-    <!-- BADGE DE CLIMA -->
     <div id="climate-badge"></div>
 
-    <!-- CAPA DE INTERFAZ (UI) -->
+    <!-- UI CONTAINER -->
     <div class="ui-container">
 
-        <!-- BARRA SUPERIOR FLOTANTE -->
+        <!-- BARRA SUPERIOR -->
         <div class="top-bar glass-panel">
-            <div class="header-content">
-                <h1>Oráculo Ancestral</h1>
-                <button id="btn-info" class="icon-btn"><i class="fas fa-info-circle"></i></button>
+            <div class="top-header">
+                <h1>Oráculo <span class="accent">Ancestral</span></h1>
+                <button id="btn-info" class="icon-btn-gold"><i class="fas fa-info-circle"></i></button>
             </div>
-
-            <!-- Selector de Nacionalidad (Siempre visible) -->
-            <div class="compact-select">
+            <div class="compact-select-gold">
                 <i class="fas fa-users"></i>
                 <select id="nacionalidad">
-                    <option value="" disabled selected>Elige Cosmovisión...</option>
+                    <option value="" selected>Autodetectar Cultura...</option>
                     <option value="Kichwa">Kichwa (Sierra)</option>
                     <option value="Shuar">Shuar (Amazonía)</option>
                     <option value="Montubio">Montubio (Costa)</option>
                     <option value="Afroecuatoriano">Afroecuatoriano</option>
+                    <option value="Tsáchila">Tsáchila</option>
+                    <option value="Waorani">Waorani</option>
                     <option value="Galapagueño">Galapagueño</option>
-                    <option value="Tsáchila">Tsáchila (Sto. Domingo)</option>
-                    <option value="Waorani">Waorani (Amazonía)</option>
                 </select>
             </div>
-            <!-- Contenedor para descripción cultural -->
             <div id="cosmovision-desc-container" class="hidden">
-                <small id="cosmovision-desc"></small>
+                <small id="cosmovision-desc" class="italic-gold"></small>
             </div>
         </div>
 
-        <!-- PANEL DE INFORMACIÓN (Oculto por defecto) -->
-        <div id="info-panel" class="glass-panel hidden">
-            <p class="highlight">"El clima es el mismo para todos, pero la cultura decide qué hacer con él."</p>
-            <p>Toca el mapa para seleccionar un lugar y descubre la sabiduría ancestral.</p>
-            <button id="btn-close-info">Entendido</button>
-        </div>
-
-        <!-- BARRA INFERIOR DE ACCIÓN -->
+        <!-- BARRA INFERIOR -->
         <div class="bottom-action-bar glass-panel">
-            <div class="location-info">
-                <i class="fas fa-map-marker-alt"></i>
-                <span id="selected-location">Toca el mapa para empezar</span>
+            <div class="location-display">
+                <i class="fas fa-map-marker-alt pulse-icon"></i>
+                <span id="selected-location">Toca el mapa para comenzar</span>
             </div>
-
-            <!-- Selectores ocultos (fallback) -->
-            <div style="display:none;">
-                <select id="provincia"></select>
-                <select id="canton"></select>
-            </div>
-
             <button id="btn-consultar" disabled>
-                CONSULTAR ORÁCULO
+                <i class="fas fa-sun"></i> CONSULTAR ORÁCULO
+            </button>
+            <button id="btn-random-location">
+                <i class="fas fa-dice"></i> Ubicación Aleatoria
             </button>
         </div>
 
-        <!-- HOJA DE RESULTADOS (BOTTOM SHEET) -->
+        <!-- HOJA DE RESULTADOS (DISEÑO 3 COLUMNAS SOLICITADO) -->
         <div id="results-sheet" class="bottom-sheet">
-            <div class="sheet-handle"></div>
-
             <div class="sheet-header">
-                <h2 id="titulo-sabiduria">Sabiduría Ancestral</h2>
-                <button id="btn-close-sheet" class="icon-btn"><i class="fas fa-times"></i></button>
+                <div class="header-titles">
+                    <h2>SABIDURÍA COSMOBIOLÓGICA</h2>
+                    <div class="subtitle">Conexión con el entorno y los ancestros</div>
+                </div>
+                <div class="header-actions">
+                    <button id="btn-back-map" class="action-btn-gold"><i class="fas fa-map"></i> Mapa</button>
+                    <button id="btn-close-sheet" class="icon-btn-close"><i class="fas fa-times"></i></button>
+                </div>
             </div>
 
-            <div class="sheet-content">
-                <!-- Clima Compacto -->
-                <div class="weather-row">
-                    <div class="weather-pill">
-                        <span id="res-temp">--°C</span>
+            <div class="sheet-content grid-layout">
+                
+                <!-- COLUMNA IZQUIERDA: Clima y Sabidurías -->
+                <div class="column">
+                    <!-- Clima y Astros (Arriba) -->
+                    <div class="result-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="fas fa-cloud-moon"></i>
+                            <h3>CLIMA Y ASTROS</h3>
+                        </div>
+                        <div class="weather-card-main">
+                            <div id="res-clima-icon"></div>
+                            <div class="temp-box">
+                                <span id="res-temp">--°C</span>
+                                <small id="res-clima-txt">--</small>
+                            </div>
+                        </div>
+                        <div class="weather-grid-details">
+                            <div class="detail-box"><span>CIUDAD</span><b id="res-ciudad">--</b></div>
+                            <div class="detail-box"><span>PROVINCIA</span><b id="res-provincia">--</b></div>
+                            <div class="detail-box"><span>LUNA</span><div id="res-luna-icon"></div><b id="res-luna">--</b></div>
+                            <div class="detail-box"><span>HUMEDAD</span><b id="res-humedad">--</b></div>
+                        </div>
                     </div>
-                    <div class="weather-pill">
-                        <span id="res-cond">--</span>
-                    </div>
-                    <div class="weather-pill">
-                        <span id="res-luna">--</span>
-                        <small id="res-luna-detalle" style="display:block; font-size: 0.7rem; color: var(--text-dim); margin-top: 2px;">--</small>
+
+                    <!-- Sabidurías (Abajo) -->
+                    <div class="result-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="fas fa-scroll"></i>
+                            <h3>SABIDURÍAS</h3>
+                        </div>
+                        <div class="identity-tag">CULTURA: <span id="res-nacionalidad">--</span></div>
+                        <div class="wisdom-accordion scroll-internal">
+                            <button class="saber-btn" onclick="toggleSaber('cont-siembra')">Labores de Tierra</button>
+                            <div id="cont-siembra" class="saber-content"><p id="card-labores">...</p></div>
+                            
+                            <button class="saber-btn" onclick="toggleSaber('cont-rituales')">Rituales y Danzas</button>
+                            <div id="cont-rituales" class="saber-content"><p id="card-rituales">...</p></div>
+                            
+                            <button class="saber-btn" onclick="toggleSaber('cont-vestimenta')">Vestimenta</button>
+                            <div id="cont-vestimenta" class="saber-content"><p id="card-vestimenta">...</p></div>
+
+                            <button class="saber-btn" onclick="toggleSaber('cont-gastronomia')">Gastronomía</button>
+                            <div id="cont-gastronomia" class="saber-content"><p id="card-gastronomia">...</p></div>
+
+                            <button class="saber-btn" onclick="toggleSaber('cont-medicina')">Medicina Ancestral</button>
+                            <div id="cont-medicina" class="saber-content"><p id="card-medicina">...</p></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Tarjetas -->
-                <div class="cards-list">
-                    <div class="card-item">
-                        <div class="card-icon-box green"><i class="fas fa-seedling"></i></div>
-                        <div class="card-text">
-                            <h3>Labores de Tierra</h3>
-                            <p id="card-labores">...</p>
+                <!-- COLUMNA CENTRAL: Crónicas Ancestrales (Galería Full Height) -->
+                <div class="column">
+                    <div class="result-panel glass-panel center-gallery">
+                        <div class="panel-header">
+                            <i class="fas fa-images"></i>
+                            <h3>CRÓNICAS ANCESTRALES</h3>
                         </div>
-                    </div>
-
-                    <div class="card-item">
-                        <div class="card-icon-box red"><i class="fas fa-fire"></i></div>
-                        <div class="card-text">
-                            <h3>Rituales y Danzas</h3>
-                            <p id="card-rituales">...</p>
+                        <div class="main-gallery-container">
+                            <img id="cultural-img" src="" alt="Ancestral Visual">
+                            <button class="nav-arrow prev" onclick="cambiarImagenSlider(-1)"><i class="fas fa-chevron-left"></i></button>
+                            <button class="nav-arrow next" onclick="cambiarImagenSlider(1)"><i class="fas fa-chevron-right"></i></button>
                         </div>
+                        <div class="image-indicator"></div>
                     </div>
-
-                    <div class="card-item">
-                        <div class="card-icon-box blue"><i class="fas fa-tshirt"></i></div>
-                        <div class="card-text">
-                            <h3>Vestimenta</h3>
-                            <p id="card-vestimenta">...</p>
-                        </div>
-                    </div>
-
-                    <!-- NUEVAS TARJETAS -->
-                    <div class="card-item">
-                        <div class="card-icon-box orange"><i class="fas fa-utensils"></i></div>
-                        <div class="card-text">
-                            <h3>Gastronomía</h3>
-                            <p id="card-gastronomia">...</p>
-                        </div>
-                    </div>
-
-                    <div class="card-item">
-                        <div class="card-icon-box purple"><i class="fas fa-heartbeat"></i></div>
-                        <div class="card-text">
-                            <h3>Medicina Natural</h3>
-                            <p id="card-medicina">...</p>
-                        </div>
-                    </div>
-
                 </div>
+
+                <!-- COLUMNA DERECHA: Relato e Historia -->
+                <div class="column">
+                    <!-- Relato Tradicional (Arriba) -->
+                    <div class="result-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="fas fa-book-open"></i>
+                            <h3>RELATO TRADICIONAL</h3>
+                        </div>
+                        <div class="myth-box-full scroll-internal">
+                            <p id="res-myth-text">"Relato del ancestro..."</p>
+                        </div>
+                    </div>
+
+                    <!-- Historia del Pueblo (Abajo) -->
+                    <div class="result-panel glass-panel">
+                        <div class="panel-header">
+                            <i class="fas fa-monument"></i>
+                            <h3>HISTORIA DEL PUEBLO</h3>
+                        </div>
+                        <div class="history-box scroll-internal">
+                            <p id="card-historia">...</p>
+                            <hr style="margin: 10px 0; opacity: 0.1;">
+                            <small>TERRITORIOS:</small>
+                            <p id="card-asentamientos">...</p>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
-        <!-- Loading Overlay -->
-        <div id="loading" class="loading-overlay hidden">
-            <i class="fas fa-spinner fa-spin fa-3x"></i>
-            <p>Consultando a los astros...</p>
+        <!-- INFO OVERLAY -->
+        <div id="info-panel" class="info-overlay hidden glass-panel">
+            <div class="info-content">
+                <h3>El Oráculo Ancestral</h3>
+                <p>Navega, descubre y conecta con los pueblos del Ecuador.</p>
+                <button id="btn-close-info" class="primary-action-btn">CERRAR</button>
+            </div>
         </div>
 
-        <!-- TOAST NOTIFICATION -->
-        <div id="toast">Mensaje de error</div>
+        <!-- LOADING -->
+        <div id="loading" class="hidden">
+            <div class="loader-content">
+                <div class="moon-spinner"></div>
+                <p>Consultando a los ancestros...</p>
+            </div>
+        </div>
 
     </div>
 
+    <!-- SCRIPTS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="lugares.js"></script>
     <script src="data.js"></script>
+    <script src="provincias.js"></script>
+    <script src="visuals.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
