@@ -157,72 +157,36 @@ async function abrirOraculo(lat, lon, ciudad, provincia) {
     
     // 1. Detección de cultura por provincia (Fallback)
     const mapping = MAPPING_PROVINCIAS[provincia] || { pueblo: "Kichwa", asentamientos: "Territorio Ecuatoriano" };
+    
+    // Normalización para REGLAS_ANCESTRALES
     const nacFinal = nacionalidadManual || normalizarNacionalidad(mapping.pueblo);
 
     loadingDiv.classList.remove('hidden');
 
     try {
-        // Llamada al Backend Java (Javalin)
-        const response = await fetch(`http://localhost:8080/api/consultar?ciudad=${encodeURIComponent(ciudad)}&nacionalidad=${encodeURIComponent(nacFinal)}`);
-        
-        if (!response.ok) throw new Error("Error en la respuesta del servidor");
-        
-        const data = await response.json();
-        const { clima, recomendacion } = data;
-
-        // Consultas paralelas para contenido extra (Wiki e Imágenes)
-        const [history, images] = await Promise.all([
+        // Ejecutamos consultas en paralelo
+        const results = await Promise.allSettled([
+            obtenerClima(ciudad, lat, lon),
             obtenerHistoriaWiki(nacFinal),
             obtenerImagenCultural(nacFinal)
         ]);
 
-        // Adaptar nombres de campos (El backend usa snake_case en JSON por Jackson)
-        const recAdaptada = {
-            labores_tierra: recomendacion.labores_tierra,
-            rituales_danzas: recomendacion.rituales_danzas,
-            vestimenta: recomendacion.vestimenta,
-            gastronomia: recomendacion.gastronomia,
-            medicina: recomendacion.medicina
-        };
+        const clima = results[0].status === 'fulfilled' ? results[0].value : { temp: 18, humedad: 70, desc: "clima andino", condicion: "Despejado", icon: "01d" };
+        const history = results[1].status === 'fulfilled' ? results[1].value : "Sabiduría transmitida por vía oral.";
+        const images = results[2].status === 'fulfilled' ? results[2].value : [];
 
-        const climaAdaptado = {
-            temp: clima.temperature,
-            humedad: clima.humidity || "--", // El backend actual no devuelve humedad aún, podríamos agregarlo
-            desc: clima.condition,
-            condicion: mapConditionToUI(clima.condition),
-            icon: mapConditionToIcon(clima.condition, false), // Ajustar según necesidad
-            isNight: false // Ajustar si el backend provee esta info
-        };
+        const luna = calcularFaseLunar(new Date());
+        const recomendacion = obtenerRecomendacion(nacFinal, luna.faseActual, clima.condicion);
 
-        const lunaInfo = { faseActual: clima.moonPhase };
-
-        actualizarFondoDinamico(climaAdaptado);
-        poblarInterfaz(climaAdaptado, lunaInfo, recAdaptada, nacFinal, history, images, mapping.asentamientos, ciudad, provincia);
+        actualizarFondoDinamico(clima);
+        poblarInterfaz(clima, luna, recomendacion, nacFinal, history, images, mapping.asentamientos, ciudad, provincia);
 
     } catch (error) {
         console.error("Error crítico en oráculo:", error);
-        alert("El Oráculo no pudo conectar con el servidor Java. Asegúrate de que el servidor esté corriendo en el puerto 8080.");
+        alert("El Oráculo experimentó un error al sincronizar con los elementos. Por favor intenta de nuevo.");
     } finally {
         loadingDiv.classList.add('hidden');
     }
-}
-
-// Helpers para mapear la respuesta del backend a la UI
-function mapConditionToUI(condition) {
-    const c = condition.toLowerCase();
-    if (c.includes("rain") || c.includes("drizzle") || c.includes("thunderstorm")) return "Lluvia";
-    if (c.includes("mist") || c.includes("fog")) return "Niebla";
-    if (c.includes("clear")) return "Despejado";
-    return "Despejado";
-}
-
-function mapConditionToIcon(condition, isNight) {
-    const c = condition.toLowerCase();
-    let icon = "01";
-    if (c.includes("rain")) icon = "10";
-    else if (c.includes("cloud")) icon = "03";
-    else if (c.includes("clear")) icon = "01";
-    return icon + (isNight ? "n" : "d");
 }
 
 function normalizarNacionalidad(nombre) {
