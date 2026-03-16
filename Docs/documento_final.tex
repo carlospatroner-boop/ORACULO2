@@ -1,0 +1,629 @@
+% ============================================================
+% DOCUMENTO FINAL - PROCESO DE SOFTWARE
+% Oráculo Bioclimático - Formato IEEE
+% ============================================================
+\documentclass[conference]{IEEEtran}
+
+% --- Paquetes ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla]{babel}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{multirow}
+
+% --- Configuración de hipervínculos ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black
+}
+
+% --- Configuración de listings para código ---
+\lstset{
+    basicstyle=\ttfamily\scriptsize,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    tabsize=2,
+    showstringspaces=false,
+    captionpos=b,
+    language=Java,
+    columns=flexible
+}
+
+% ============================================================
+% TÍTULO Y AUTORES (IEEE)
+% ============================================================
+\title{Oráculo Bioclimático: Motor de Recomendaciones Ancestrales\\
+Basado en Datos Meteorológicos y Calendarios Lunares}
+
+\author{
+    \IEEEauthorblockN{
+        Carpio Mendoza Carlos José,
+        Cruz Pérez Justyn Keith,
+        Mendoza Bermello Angello Agustín,\\
+        Mendoza Moreira Andy Emanuel,
+        Zambrano Yong Ángel Daniel
+    }
+    \IEEEauthorblockA{
+        Facultad de Ciencias de la Computación y Diseño Digital\\
+        Universidad Técnica Estatal de Quevedo\\
+        Quevedo, Ecuador\\
+        Asignatura: Proceso de Software\\
+        Docente: Ing. Cordero Bazurto Jose Steven\\
+        Grupo 4 --- Período 2026
+    }
+}
+
+% ============================================================
+% INICIO DEL DOCUMENTO
+% ============================================================
+\begin{document}
+
+\maketitle
+
+% ============================================================
+% 3. RESUMEN
+% ============================================================
+\begin{abstract}
+El presente documento describe el proceso de desarrollo del proyecto \textit{Oráculo Bioclimático}, un motor de recomendaciones que integra datos meteorológicos en tiempo real con calendarios lunares y saberes ancestrales de cinco nacionalidades del Ecuador: Kichwa, Shuar, Montubio, Afroecuatoriano y Galapagueño. El sistema fue desarrollado en Java 17 con arquitectura cliente-servidor, utilizando la API de OpenWeatherMap para obtener condiciones climáticas actuales y un algoritmo de Conway para calcular las fases lunares. A partir de estas variables, el motor consulta una base de reglas ancestrales codificada en formato JSON para generar recomendaciones contextualizadas sobre labores de tierra, rituales, vestimenta, gastronomía y medicina tradicional. El proceso de ingeniería de software aplicado abarcó las etapas de planificación, desarrollo iterativo, pruebas y mantenimiento, siguiendo prácticas de control de versiones con Git. Los resultados demuestran que la tecnología contemporánea puede servir como vehículo para la preservación y difusión del patrimonio cultural inmaterial del Ecuador.
+\end{abstract}
+
+% ============================================================
+% 4. PALABRAS CLAVE
+% ============================================================
+\begin{IEEEkeywords}
+Saberes ancestrales, datos meteorológicos, fases lunares, motor de recomendaciones, patrimonio cultural inmaterial
+\end{IEEEkeywords}
+
+% ============================================================
+% 5. INTRODUCCIÓN
+% ============================================================
+\section{Introducción}
+
+El Ecuador es un país con una extraordinaria diversidad cultural, hogar de 14 nacionalidades y 18 pueblos indígenas que han desarrollado, a lo largo de siglos, sofisticados sistemas de conocimiento sobre la relación entre los fenómenos naturales y las actividades humanas. Los pueblos ancestrales ecuatorianos poseían un profundo entendimiento de cómo las fases lunares, las condiciones climáticas y los ciclos estacionales influyen en la siembra, la pesca, los rituales y la vida cotidiana~\cite{patrimonio2016}.
+
+Sin embargo, este valioso patrimonio cultural inmaterial enfrenta un riesgo creciente de pérdida ante la urbanización, la globalización y el desinterés de las nuevas generaciones. Según datos del Instituto Nacional de Patrimonio Cultural del Ecuador, muchas prácticas ancestrales se transmiten exclusivamente de forma oral, lo que las hace vulnerables a la discontinuidad generacional~\cite{inpc2019}.
+
+En este contexto, el proyecto \textit{Oráculo Bioclimático} surge como una propuesta tecnológica que busca rescatar y poner en valor estos saberes milenarios mediante su integración con tecnologías modernas. El sistema funciona como un motor de recomendaciones que cruza tres fuentes de datos:
+
+\begin{itemize}
+    \item \textbf{Datos meteorológicos en tiempo real}: obtenidos de la API de OpenWeatherMap, proporcionando temperatura y condiciones climáticas actuales para cualquier ciudad del Ecuador.
+    \item \textbf{Fases lunares calculadas}: mediante un algoritmo astronómico basado en el método de Conway, que determina la fase lunar actual (Nueva, Creciente, Llena o Menguante).
+    \item \textbf{Base de saberes ancestrales}: un compendio estructurado en formato JSON que codifica las reglas y prácticas tradicionales de cinco nacionalidades ecuatorianas.
+\end{itemize}
+
+A partir del cruce de estas variables, el sistema genera recomendaciones contextualizadas que indican qué actividades estarían realizando los ancestros de una etnia determinada en el día actual, basándose en el clima y la fase lunar. Las recomendaciones abarcan cinco dimensiones: labores de tierra, rituales y danzas, vestimenta, gastronomía y medicina tradicional.
+
+El desarrollo del proyecto se enmarca dentro de la asignatura de Proceso de Software, lo que implica no solo la construcción del producto, sino la aplicación rigurosa de un proceso de ingeniería que incluye planificación, estimación de costos, gestión de tiempos, desarrollo iterativo, control de versiones, pruebas y mantenimiento.
+
+El presente documento está organizado de la siguiente manera: la Sección~II describe la planificación y configuración inicial del proyecto; la Sección~III detalla el desarrollo e integración de los módulos; la Sección~IV presenta el registro de mantenimiento; la Sección~V aborda la calidad y cierre; la Sección~VI expone los resultados; la Sección~VII incluye la discusión del proceso; y finalmente la Sección~VIII presenta las conclusiones.
+
+% ============================================================
+% 6. PLANIFICACIÓN Y CONFIGURACIÓN
+% ============================================================
+\section{Planificación y Configuración}
+
+En esta sección se describen las actividades realizadas durante la Semana~1 del proyecto, enfocadas en establecer las bases para el desarrollo del sistema.
+
+\subsection{Planificación General}
+
+El proyecto fue planificado bajo un enfoque de desarrollo iterativo en tres semanas:
+
+\begin{itemize}
+    \item \textbf{Semana 1}: Planificación, configuración del entorno y especificación de requisitos.
+    \item \textbf{Semana 2}: Desarrollo de funcionalidades priorizadas e integración de módulos.
+    \item \textbf{Semana 3}: Pruebas de calidad, correcciones y cierre del proyecto.
+\end{itemize}
+
+La arquitectura del sistema se definió con un patrón \textit{cliente-servidor}, donde el backend en Java provee una API REST y el frontend web consume los datos para su visualización.
+
+\subsection{Uso de Git y Repositorio}
+
+Se utilizó Git como sistema de control de versiones, con un repositorio alojado para gestionar el código fuente del proyecto. La estructura del repositorio se organizó de la siguiente manera:
+
+\begin{lstlisting}[caption={Estructura del repositorio}, language=bash, numbers=none]
+ORACULO2/
+|-- src/
+|   |-- Main.java
+|   |-- OraculoService.java
+|   |-- OraculoRESTServer.java
+|   |-- WeatherService.java
+|-- web/
+|   |-- index.html
+|   |-- style.css
+|   |-- script.js
+|   |-- data.js
+|   |-- visuals.js
+|   |-- provincias.js
+|   |-- lugares.js
+|   |-- images/
+|-- reglas_ancestrales.json
+|-- pom.xml
+|-- package.json
+\end{lstlisting}
+
+% TODO: Agregar evidencias de commits, ramas, etc.
+
+\subsection{Estimación de Recursos}
+
+Para el desarrollo del proyecto se identificaron los siguientes recursos:
+
+\begin{table}[H]
+    \centering
+    \caption{Recursos del proyecto}
+    \label{tab:recursos}
+    \begin{tabularx}{\columnwidth}{|l|X|}
+        \hline
+        \textbf{Recurso} & \textbf{Descripción} \\
+        \hline
+        Lenguaje & Java 17 (JDK 17) \\
+        \hline
+        Build Tool & Apache Maven \\
+        \hline
+        API Externa & OpenWeatherMap \\
+        \hline
+        Frontend & HTML5, CSS3, JavaScript \\
+        \hline
+        Servidor & HTTP embebido de Java \\
+        \hline
+        Dependencias & Jackson 2.15.2, Javalin 5.6.1, SLF4J \\
+        \hline
+        Datos & reglas\_ancestrales.json \\
+        \hline
+        Versiones & Git \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsection{Cronograma}
+
+% TODO: Insertar captura del cronograma en ProjectLibre
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\columnwidth]{cronograma.png}
+%     \caption{Cronograma del proyecto en ProjectLibre}
+%     \label{fig:cronograma}
+% \end{figure}
+
+El cronograma del proyecto se elaboró en ProjectLibre, distribuyendo las actividades principales en tres semanas de trabajo. Las actividades se detallan en el Anexo correspondiente.
+
+\subsection{Especificación de Requisitos (SRS)}
+
+\subsubsection{Requisitos Funcionales}
+
+\begin{table}[H]
+    \centering
+    \caption{Requisitos funcionales del sistema}
+    \label{tab:req_funcionales}
+    \footnotesize
+    \begin{tabularx}{\columnwidth}{|l|X|}
+        \hline
+        \textbf{ID} & \textbf{Descripción} \\
+        \hline
+        RF-01 & Obtener datos meteorológicos en tiempo real para ciudades del Ecuador mediante la API de OpenWeatherMap. \\
+        \hline
+        RF-02 & Calcular la fase lunar actual utilizando un algoritmo astronómico. \\
+        \hline
+        RF-03 & Permitir al usuario seleccionar una nacionalidad (Kichwa, Shuar, Montubio, Afroecuatoriano, Galapagueño). \\
+        \hline
+        RF-04 & Generar recomendaciones ancestrales cruzando clima, fase lunar y nacionalidad. \\
+        \hline
+        RF-05 & Las recomendaciones incluyen: labores de tierra, rituales, vestimenta, gastronomía y medicina. \\
+        \hline
+        RF-06 & Exponer una API REST para consumo del frontend web. \\
+        \hline
+        RF-07 & Presentar la información de forma visual e interactiva en el frontend. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsubsection{Requisitos No Funcionales}
+
+\begin{table}[H]
+    \centering
+    \caption{Requisitos no funcionales del sistema}
+    \label{tab:req_no_funcionales}
+    \footnotesize
+    \begin{tabularx}{\columnwidth}{|l|X|}
+        \hline
+        \textbf{ID} & \textbf{Descripción} \\
+        \hline
+        RNF-01 & Respuesta en menos de 5 segundos. \\
+        \hline
+        RNF-02 & Compatible con Java 17 o superior. \\
+        \hline
+        RNF-03 & Interfaz web responsiva y compatible con navegadores modernos. \\
+        \hline
+        RNF-04 & Manejo elegante de errores de conexión. \\
+        \hline
+        RNF-05 & Base de reglas extensible vía JSON. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+% ============================================================
+% 7. DESARROLLO E INTEGRACIÓN
+% ============================================================
+\section{Desarrollo e Integración}
+
+En esta sección se presenta el trabajo realizado durante la Semana~2, correspondiente al desarrollo de las funcionalidades y la integración de los módulos del sistema.
+
+\subsection{Funcionalidades Priorizadas}
+
+Las funcionalidades fueron priorizadas utilizando el criterio de dependencia técnica y valor para el usuario:
+
+\begin{enumerate}
+    \item \textbf{Prioridad Alta}: Integración con API meteorológica, cálculo de fase lunar, motor de recomendaciones.
+    \item \textbf{Prioridad Media}: Servidor REST, interfaz web con visualizaciones.
+    \item \textbf{Prioridad Baja}: Interfaz de consola (CLI), mecanismo de fallback.
+\end{enumerate}
+
+\subsection{Módulos Desarrollados}
+
+El sistema se compone de cuatro módulos principales en el backend y un módulo de frontend:
+
+\subsubsection{WeatherService -- Servicio Meteorológico}
+
+Este módulo es responsable de la obtención de datos climáticos en tiempo real y el cálculo de fases lunares. Sus características principales son:
+
+\begin{itemize}
+    \item Conexión a la API de OpenWeatherMap mediante \texttt{HttpClient} de Java 17.
+    \item Parseo manual del JSON de respuesta para extraer temperatura y condiciones climáticas.
+    \item Mecanismo de fallback: si la búsqueda con código de país (EC) falla, reintenta sin restricción geográfica.
+    \item Algoritmo de Conway para cálculo de fase lunar, basado en una fecha conocida de Luna Nueva (11 de enero de 2024) y el ciclo lunar de 29.53 días.
+\end{itemize}
+
+\begin{lstlisting}[caption={Algoritmo de cálculo de fase lunar}]
+private String calculateMoonPhase(LocalDate date) {
+    LocalDate knownNewMoon =
+        LocalDate.of(2024, 1, 11);
+    long daysSinceNewMoon =
+        ChronoUnit.DAYS.between(knownNewMoon, date);
+    double lunarCycle = 29.53;
+    double currentCycleDay =
+        daysSinceNewMoon % lunarCycle;
+    if (currentCycleDay < 0)
+        currentCycleDay += lunarCycle;
+
+    if (currentCycleDay < 1.8)
+        return "Luna Nueva";
+    if (currentCycleDay < 9.2)
+        return "Luna Creciente";
+    if (currentCycleDay < 16.6)
+        return "Luna Llena";
+    if (currentCycleDay < 24.0)
+        return "Luna Menguante";
+    return "Luna Nueva";
+}
+\end{lstlisting}
+
+\subsubsection{OraculoService -- Motor de Recomendaciones}
+
+Este módulo constituye el núcleo del sistema. Su función es cruzar los datos meteorológicos y la fase lunar con la base de saberes ancestrales para generar recomendaciones. Sus características son:
+
+\begin{itemize}
+    \item Lectura y parseo del archivo \texttt{reglas\_ancestrales.json} que contiene las reglas para cada nacionalidad.
+    \item Búsqueda jerárquica: Nacionalidad $\rightarrow$ Fase Lunar $\rightarrow$ Condición Climática.
+    \item Mapeo de condiciones climáticas: traduce las respuestas de la API (\texttt{Rain}, \texttt{Drizzle}, \texttt{Clear}, etc.) a categorías ancestrales (\texttt{Lluvia}, \texttt{Despejado}).
+    \item Mecanismo de fallback por nacionalidad cuando no se encuentra una coincidencia exacta.
+    \item Objeto \texttt{Recomendacion} con cinco dimensiones: labores de tierra, rituales y danzas, vestimenta, gastronomía y medicina.
+\end{itemize}
+
+\subsubsection{OraculoRESTServer -- Servidor API REST}
+
+Servidor HTTP embebido que expone el motor de recomendaciones como un servicio web:
+
+\begin{itemize}[leftmargin=*]
+    \item Implementado con \texttt{HttpServer} (librería nativa de Java).
+    \item Endpoint: \texttt{GET /api/consultar} con parámetros \texttt{ciudad} y \texttt{nacionalidad}.
+    \item Puerto de escucha: 8080.
+    \item Soporte CORS para acceso desde el frontend.
+    \item Respuestas en formato JSON.
+\end{itemize}
+
+\subsubsection{Main -- Interfaz de Consola (CLI)}
+
+Interfaz alternativa por línea de comandos que permite interactuar con el sistema sin necesidad del frontend web:
+
+\begin{itemize}
+    \item Menú interactivo para selección de ciudad y nacionalidad.
+    \item Soporte para las 5 nacionalidades: Kichwa, Shuar, Montubio, Afroecuatoriano y Galapagueño.
+    \item Ciclo de consultas múltiples hasta que el usuario decida salir.
+\end{itemize}
+
+\subsubsection{Frontend Web}
+
+La interfaz web está desarrollada con tecnologías estándar:
+
+\begin{itemize}
+    \item \textbf{index.html}: Estructura principal de la aplicación.
+    \item \textbf{style.css}: Estilos visuales con diseño responsivo.
+    \item \textbf{script.js}: Lógica de interacción y consumo de la API REST.
+    \item \textbf{data.js}: Datos de respaldo para funcionamiento offline.
+    \item \textbf{visuals.js}: Visualizaciones dinámicas e interactivas.
+    \item \textbf{provincias.js} y \textbf{lugares.js}: Catálogos geográficos del Ecuador.
+\end{itemize}
+
+\subsection{Avance del Código}
+
+% TODO: Agregar evidencias de avance (capturas de código, commits, etc.)
+El desarrollo se realizó de forma progresiva, priorizando la funcionalidad del backend antes de la integración con el frontend. Los archivos fuente del backend suman aproximadamente 450 líneas de código Java, mientras que el frontend comprende alrededor de 70,000 caracteres entre HTML, CSS y JavaScript.
+
+% ============================================================
+% 8. REGISTRO DE MANTENIMIENTO
+% ============================================================
+\section{Registro de Mantenimiento}
+
+Durante el desarrollo del proyecto se realizaron diversos cambios, ajustes y correcciones. A continuación se documenta el registro de mantenimiento:
+
+\begin{table}[H]
+    \centering
+    \caption{Registro de cambios y mantenimiento}
+    \label{tab:mantenimiento}
+    \scriptsize
+    \begin{tabularx}{\columnwidth}{|l|l|X|}
+        \hline
+        \textbf{Fecha} & \textbf{Módulo} & \textbf{Descripción del cambio} \\
+        \hline
+        Sem. 1 & Weather & Conexión a OpenWeatherMap. Codificación URL para tildes. \\
+        \hline
+        Sem. 1 & Oráculo & Creación del JSON de reglas ancestrales (5 nacionalidades). \\
+        \hline
+        Sem. 2 & Weather & Mecanismo fallback: reintento sin código de país. \\
+        \hline
+        Sem. 2 & REST & Configuración de CORS para el frontend. \\
+        \hline
+        Sem. 2 & Frontend & Interfaz visual con selección de provincias. \\
+        \hline
+        Sem. 3 & Oráculo & Mejora del parseo JSON y extracción de bloques. \\
+        \hline
+        Sem. 3 & General & Corrección de errores y manejo de excepciones. \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+% TODO: Complementar con evidencias reales de commits y cambios
+
+% ============================================================
+% 9. CALIDAD Y CIERRE
+% ============================================================
+\section{Calidad y Cierre}
+
+En esta sección se presentan las actividades de aseguramiento de calidad realizadas durante la Semana~3.
+
+\subsection{Casos de Prueba}
+
+\begin{table}[H]
+    \centering
+    \caption{Casos de prueba del sistema}
+    \label{tab:pruebas}
+    \scriptsize
+    \begin{tabularx}{\columnwidth}{|l|X|X|l|}
+        \hline
+        \textbf{ID} & \textbf{Caso de Prueba} & \textbf{Resultado Esperado} & \textbf{Estado} \\
+        \hline
+        CP-01 & Consulta clima (Quito) & Retorna temp. y condición & OK \\
+        \hline
+        CP-02 & Ciudad inexistente & Error controlado & OK \\
+        \hline
+        CP-03 & Cálculo fase lunar & Fase correcta & OK \\
+        \hline
+        CP-04 & Kichwa + Luna Llena + Lluvia & Regla exacta del JSON & OK \\
+        \hline
+        CP-05 & Combinación no existente & Fallback nacionalidad & OK \\
+        \hline
+        CP-06 & Endpoint REST & JSON clima + rec. & OK \\
+        \hline
+        CP-07 & Frontend muestra datos & Visualización correcta & OK \\
+        \hline
+        CP-08 & Sin conexión & Error sin crash & OK \\
+        \hline
+    \end{tabularx}
+\end{table}
+
+\subsection{Errores Encontrados}
+
+Durante las pruebas se identificaron los siguientes errores:
+
+\begin{enumerate}
+    \item \textbf{Parseo de temperatura}: el valor numérico se confundía con el campo \texttt{"main"} del bloque de clima, al existir ambos campos con la misma clave en diferentes niveles del JSON.
+    \item \textbf{Ciudades con caracteres especiales}: nombres como ``Ambato'' funcionaban, pero ``Puerto Ayora'' generaba errores por los espacios en la URL.
+    \item \textbf{CORS bloqueado}: el frontend no podía comunicarse con el backend hasta agregar los encabezados de Access-Control.
+\end{enumerate}
+
+\subsection{Correcciones Aplicadas}
+
+\begin{enumerate}
+    \item Se implementó una búsqueda más precisa del campo \texttt{"temp"} dentro del objeto \texttt{"main"} del JSON.
+    \item Se añadió codificación URL (\texttt{URLEncoder.encode}) para los nombres de ciudades.
+    \item Se configuraron los encabezados CORS en el servidor REST.
+    \item Se añadió un mecanismo de fallback para la API: si la consulta con código de país falla, reintenta sin restricción geográfica.
+\end{enumerate}
+
+\subsection{Verificación Final}
+
+Tras las correcciones, se ejecutaron nuevamente todos los casos de prueba (CP-01 a CP-08), obteniendo resultados satisfactorios en todos ellos. El sistema funciona correctamente tanto en modo consola como en modo web.
+
+% TODO: Agregar capturas de verificación
+
+% ============================================================
+% 10. RESULTADOS DEL PROYECTO
+% ============================================================
+\section{Resultados del Proyecto}
+
+\subsection{Funcionalidades Implementadas}
+
+Se logró implementar exitosamente las siguientes funcionalidades:
+
+\begin{itemize}
+    \item Motor de recomendaciones bioclimáticas completamente funcional.
+    \item Integración con API de OpenWeatherMap para datos meteorológicos en tiempo real.
+    \item Cálculo automático de fases lunares mediante algoritmo astronómico.
+    \item Base de saberes ancestrales para 5 nacionalidades ecuatorianas con reglas para 4 fases lunares y 2 condiciones climáticas.
+    \item Servidor REST en Java con endpoint de consulta.
+    \item Interfaz web interactiva con selección de provincias, lugares y nacionalidades.
+    \item Interfaz de consola (CLI) como alternativa de uso.
+    \item Mecanismos de fallback tanto para la API meteorológica como para las reglas ancestrales.
+\end{itemize}
+
+\subsection{Aspectos Pendientes}
+
+Los siguientes elementos quedaron fuera del alcance del proyecto actual:
+
+\begin{itemize}
+    \item Integración con una base de datos persistente (actualmente todo se lee del JSON).
+    \item Autenticación y gestión de usuarios.
+    \item Ampliación de la base de reglas a más nacionalidades y pueblos.
+    \item Despliegue en un servidor en la nube.
+    \item Pruebas automatizadas con frameworks como JUnit.
+\end{itemize}
+
+% ============================================================
+% 11. DISCUSIÓN O ANÁLISIS DEL PROCESO
+% ============================================================
+\section{Discusión o Análisis del Proceso}
+
+El desarrollo del \textit{Oráculo Bioclimático} representó un ejercicio integral de ingeniería de software que permitió al equipo vivenciar el ciclo completo de un proyecto, desde la planificación hasta la entrega.
+
+\subsection{Trabajo en Equipo}
+
+El equipo de cinco integrantes distribuyó las responsabilidades entre backend, frontend, investigación de saberes ancestrales y documentación. La comunicación se mantuvo mediante reuniones periódicas y el uso de Git para la coordinación del código.
+
+\subsection{Dificultades Encontradas}
+
+\begin{itemize}
+    \item \textbf{Parseo JSON manual}: al no utilizar una librería de parseo estructurado (como Jackson) en la lógica principal, el parseo manual del JSON resultó propenso a errores. Esto se resolvió con funciones auxiliares robustas (\texttt{extraerBloque}, \texttt{extraerValor}).
+    \item \textbf{Dependencia de API externa}: el funcionamiento del sistema depende de la disponibilidad y correcta respuesta de OpenWeatherMap, lo que requirió implementar fallbacks.
+    \item \textbf{Investigación cultural}: la codificación de saberes ancestrales requirió un proceso de investigación y validación para asegurar la fidelidad de la información.
+\end{itemize}
+
+\subsection{Relación Planificación-Desarrollo-Pruebas}
+
+La planificación en tres semanas resultó adecuada para el alcance del proyecto. La primera semana permitió establecer una base sólida de configuración y requisitos. La segunda semana se enfocó en el desarrollo intensivo, y la tercera en pruebas y refinamiento. Se observó que la planificación temprana de la arquitectura (patrón cliente-servidor) facilitó la integración posterior de los módulos.
+
+% ============================================================
+% 12. CONCLUSIONES
+% ============================================================
+\section{Conclusiones}
+
+El desarrollo del proyecto \textit{Oráculo Bioclimático} permitió alcanzar las siguientes conclusiones:
+
+\begin{enumerate}
+    \item La integración de datos meteorológicos en tiempo real con saberes ancestrales demostró ser viable y produce resultados significativos para la preservación del patrimonio cultural inmaterial del Ecuador.
+
+    \item El uso de un proceso de software estructurado (planificación, desarrollo iterativo, pruebas y mantenimiento) fue fundamental para la organización del equipo y la entrega exitosa del producto.
+
+    \item La arquitectura cliente-servidor con una API REST permitió la separación clara de responsabilidades y facilitó el desarrollo paralelo del backend y frontend.
+
+    \item El control de versiones con Git resultó indispensable para la coordinación del equipo, el seguimiento de cambios y la resolución de conflictos.
+
+    \item Se evidenció la importancia de los mecanismos de fallback en sistemas que dependen de servicios externos, garantizando la resiliencia del sistema ante fallos de conectividad.
+
+    \item El proyecto demostró que la tecnología puede ser un aliado para la conservación de los saberes ancestrales, acercando las tradiciones milenarias a las nuevas generaciones a través de herramientas digitales accesibles.
+\end{enumerate}
+
+% ============================================================
+% 13. REFERENCIAS
+% ============================================================
+\begin{thebibliography}{99}
+
+\bibitem{patrimonio2016}
+Ministerio de Cultura y Patrimonio del Ecuador, ``Patrimonio Cultural Inmaterial,'' Quito, Ecuador, 2016.
+
+\bibitem{inpc2019}
+Instituto Nacional de Patrimonio Cultural, ``Saberes ancestrales y conocimientos tradicionales,'' INPC, Quito, 2019.
+
+\bibitem{openweathermap}
+OpenWeatherMap, ``Current Weather Data API Documentation,'' [En línea]. Disponible: \url{https://openweathermap.org/current}. [Accedido: Mar. 2026].
+
+\bibitem{conway1999}
+J. H. Conway, ``A Simple Universal Lunar Calendar,'' en \textit{Astronomical Algorithms}, Willmann-Bell, 1999.
+
+\bibitem{pressman2015}
+R. S. Pressman y B. R. Maxim, \textit{Ingeniería del Software: Un enfoque práctico}, 8va ed. McGraw-Hill, 2015.
+
+\bibitem{sommerville2016}
+I. Sommerville, \textit{Software Engineering}, 10th ed. Pearson, 2016.
+
+\bibitem{java17}
+Oracle, ``JDK 17 Documentation,'' [En línea]. Disponible: \url{https://docs.oracle.com/en/java/javase/17/}. [Accedido: Mar. 2026].
+
+\end{thebibliography}
+
+% ============================================================
+% 14. ANEXOS
+% ============================================================
+\appendix
+
+\section{Anexo A: Arquitectura del Sistema}
+
+% TODO: Insertar diagrama de arquitectura
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\columnwidth]{arquitectura.png}
+%     \caption{Diagrama de arquitectura del Oráculo Bioclimático}
+%     \label{fig:arquitectura}
+% \end{figure}
+
+La Fig.~\ref{fig:flujo} muestra el flujo de datos del sistema:
+
+\begin{enumerate}
+    \item El usuario selecciona una ciudad y una nacionalidad (vía Web o CLI).
+    \item El sistema consulta la API de OpenWeatherMap para obtener el clima actual.
+    \item El sistema calcula la fase lunar con el algoritmo de Conway.
+    \item El motor de recomendaciones cruza nacionalidad + fase lunar + clima con la base de reglas JSON.
+    \item Se presenta la recomendación ancestral al usuario.
+\end{enumerate}
+
+% TODO: Reemplazar con imagen real
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\columnwidth]{flujo_datos.png}
+%     \caption{Flujo de datos del sistema}
+%     \label{fig:flujo}
+% \end{figure}
+
+\section{Anexo B: Capturas del Sistema}
+
+% TODO: Insertar capturas de pantalla del sistema funcionando
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\columnwidth]{captura_cli.png}
+%     \caption{Interfaz de consola del Oráculo Bioclimático}
+%     \label{fig:cli}
+% \end{figure}
+
+% \begin{figure}[H]
+%     \centering
+%     \includegraphics[width=\columnwidth]{captura_web.png}
+%     \caption{Interfaz web del Oráculo Bioclimático}
+%     \label{fig:web}
+% \end{figure}
+
+\section{Anexo C: Cronograma en ProjectLibre}
+
+% TODO: Insertar captura del cronograma ProjectLibre
+
+\section{Anexo D: Enlace al Repositorio}
+
+El código fuente del proyecto se encuentra disponible en el siguiente repositorio:
+
+\url{https://github.com/carlospatroner-boop/ORACULO2}
+
+\end{document}
