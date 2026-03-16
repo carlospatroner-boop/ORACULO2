@@ -49,18 +49,18 @@ El sistema indica qué actividades estarían realizando los ancestros de una etn
                │                   │
        ┌───────▼──────┐    ┌──────▼───────┐
        │  Frontend     │    │   Main.java  │
-       │  (HTML/JS)    │    │ (EntryPoint) │
+       │  (HTML/JS)    │    │   (CLI)      │
        └───────┬───────┘    └──────┬───────┘
                │                   │
        ┌───────▼───────────────────▼───────┐
        │     OraculoRESTServer.java         │
-       │     (Javalin API - Puerto 8080)    │
+       │     (API REST - Puerto 8080)       │
        └───────┬───────────────────┬───────┘
                │                   │
     ┌──────────▼──────┐   ┌───────▼──────────┐
     │ WeatherService   │   │ OraculoService    │
-    │ (OpenWeatherMap  │   │ (Motor Jackson    │
-    │  + Fase Lunar)   │   │  POJO mapping)    │
+    │ (OpenWeatherMap  │   │ (Motor de         │
+    │  + Fase Lunar)   │   │  Recomendaciones) │
     └─────────────────┘   └────────┬──────────┘
                                    │
                           ┌────────▼──────────┐
@@ -75,17 +75,24 @@ El sistema indica qué actividades estarían realizando los ancestros de una etn
 
 ```
 ORACULO2/
-├── src/main/java/com/oraculo/
-│   ├── Main.java                 # Punto de entrada
-│   ├── api/                      # Controladores Javalin
-│   ├── service/                  # Lógica (Clima y Oráculo)
-│   └── model/                    # Modelos de datos (Jackson POJOs)
+├── src/
+│   ├── Main.java                 # Interfaz de consola (CLI)
+│   ├── OraculoService.java       # Motor de recomendaciones
+│   ├── OraculoRESTServer.java    # Servidor REST (puerto 8080)
+│   └── WeatherService.java       # Servicio meteorológico + fase lunar
 ├── web/
-│   ├── index.html                # Interfaz Web
-│   ├── style.css                 # Estilos Glassmorphic
-│   └── script.js                 # Lógica Cliente
-├── reglas_ancestrales.json       # Base de datos JSON
-└── pom.xml                       # Dependencias (Javalin, Jackson)
+│   ├── index.html                # Página principal
+│   ├── style.css                 # Estilos
+│   ├── script.js                 # Lógica del frontend
+│   ├── data.js                   # Datos de respaldo (offline)
+│   ├── visuals.js                # Visualizaciones interactivas
+│   ├── provincias.js             # Catálogo de provincias
+│   ├── lugares.js                # Catálogo de lugares
+│   └── images/                   # Recursos gráficos
+├── reglas_ancestrales.json       # Base de saberes ancestrales
+├── pom.xml                       # Configuración Maven
+├── package.json                  # Metadatos del proyecto
+└── Docs/                         # Documentación del proyecto
 ```
 
 ---
@@ -111,11 +118,20 @@ ORACULO2/
    mvn compile
    ```
 
-3. **Ejecutar el servidor**
+3. **Ejecutar el servidor REST** (Backend)
    ```bash
-   mvn compile exec:java -Dexec.mainClass="com.oraculo.Main"
+   java -cp src OraculoRESTServer
    ```
    El servidor se iniciará en `http://localhost:8080`
+
+4. **Abrir el Frontend**
+   
+   Abrir `web/index.html` en el navegador.
+
+5. **O usar la interfaz de consola (CLI)**
+   ```bash
+   java -cp src Main
+   ```
 
 ---
 
