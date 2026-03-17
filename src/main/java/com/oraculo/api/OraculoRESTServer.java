@@ -19,7 +19,7 @@ public class OraculoRESTServer {
             config.plugins.enableCors(cors -> {
                 cors.add(it -> it.anyHost());
             });
-        }).start(PORT);
+        }).start("0.0.0.0", PORT);
 
         // Endpoint: /api/consultar?ciudad=Quito&nacionalidad=Kichwa
         app.get("/api/consultar", ctx -> {
@@ -37,6 +37,6 @@ public class OraculoRESTServer {
             ));
         });
 
-        System.out.println("🚀 Servidor Oráculo Ancestral (v2) iniciado en http://localhost:" + PORT);
+        System.out.println("🚀 Servidor Oráculo Ancestral (v2) iniciado en http://0.0.0.0:" + PORT);
     }
 }
