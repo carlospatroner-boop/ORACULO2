@@ -162,8 +162,8 @@ async function abrirOraculo(lat, lon, ciudad, provincia) {
     loadingDiv.classList.remove('hidden');
 
     try {
-        // Llamada al Backend Java (Javalin)
-        const response = await fetch(`http://localhost:8080/api/consultar?ciudad=${encodeURIComponent(ciudad)}&nacionalidad=${encodeURIComponent(nacFinal)}`);
+        // Llamada al Backend Java (Javalin) en Azure
+        const response = await fetch(`http://20.38.36.141:8080/api/consultar?ciudad=${encodeURIComponent(ciudad)}&nacionalidad=${encodeURIComponent(nacFinal)}`);
         
         if (!response.ok) throw new Error("Error en la respuesta del servidor");
         
