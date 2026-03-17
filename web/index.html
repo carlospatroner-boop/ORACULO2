@@ -8,6 +8,7 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -178,6 +179,16 @@
                 <h3>El Oráculo Ancestral</h3>
                 <p>Navega, descubre y conecta con los pueblos del Ecuador.</p>
                 <button id="btn-close-info" class="primary-action-btn">CERRAR</button>
+            </div>
+        </div>
+
+        <!-- ERROR OVERLAY -->
+        <div id="error-panel" class="info-overlay hidden glass-panel error-style">
+            <div class="info-content">
+                <i class="fas fa-map-marked-alt tooltip-icon"></i>
+                <h3 class="error-title">Territorio no válido</h3>
+                <p>El Oráculo Ancestral de sabiduría cosmobiológica solo está disponible para los territorios y regiones del Ecuador.</p>
+                <button id="btn-close-error" class="primary-action-btn error-btn">ENTENDIDO</button>
             </div>
         </div>
 

@@ -1,4 +1,4 @@
-const API_KEY = "ed837b064312b708aa0afe18c2b91aca"; 
+const API_KEY = "ed837b064312b708aa0afe18c2b91aca";
 let map;
 let marker;
 let imagenesActuales = [];
@@ -24,9 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('btn-consultar');
         if (btn.dataset.lat) {
             abrirOraculo(
-                btn.dataset.lat, 
-                btn.dataset.lon, 
-                btn.dataset.ciudad, 
+                btn.dataset.lat,
+                btn.dataset.lon,
+                btn.dataset.ciudad,
                 btn.dataset.provincia
             );
         } else {
@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Eventos de UI del Oráculo
     document.getElementById('btn-info').addEventListener('click', toggleInfo);
     document.getElementById('btn-close-info').addEventListener('click', toggleInfo);
+    document.getElementById('btn-close-error').addEventListener('click', toggleError);
     document.getElementById('btn-close-sheet').addEventListener('click', cerrarResultados);
     document.getElementById('btn-back-map').addEventListener('click', cerrarResultados);
 
@@ -62,7 +63,7 @@ function inicializarMapa() {
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     map.on('click', (e) => seleccionarLugarPorCoordenadas(e.latlng.lat, e.latlng.lng));
-    
+
     // Filtro para que el mapa se vea más "místico"
     document.querySelector('.leaflet-tile-pane').style.filter = 'grayscale(0.5) contrast(1.2) brightness(0.8)';
 }
@@ -94,7 +95,7 @@ async function inicializarMapaClimatico() {
 function crearMarcadorClima(ciudad, clima) {
     const iconMap = { '01': 'sun', '02': 'cloud-sun', '03': 'cloud', '04': 'cloud', '09': 'cloud-showers-heavy', '10': 'cloud-rain', '11': 'bolt', '13': 'snowflake', '50': 'wind' };
     const faIcon = iconMap[(clima.icon || '01d').substring(0, 2)] || 'cloud-sun';
-    
+
     const weatherIcon = L.divIcon({
         className: 'weather-marker',
         html: `<div class="weather-marker-content" title="${ciudad.nombre}: ${clima.desc}">
@@ -119,26 +120,54 @@ async function seleccionarLugarPorCoordenadas(lat, lon, abrirAuto = false) {
     btn.dataset.provincia = "";
 
     if (marker) map.removeLayer(marker);
-    marker = L.marker([lat, lon]).addTo(map);
     
+    // Crear un ícono de "muñequito" base vacilando hasta saber la región
+    const defaultSvgIcon = typeof getPegmanSVG === 'function' ? getPegmanSVG('default') : '';
+    const personIcon = L.divIcon({
+        className: 'person-marker',
+        html: `<div class="person-marker-content">${defaultSvgIcon}</div>`,
+        iconSize: [60, 80],
+        iconAnchor: [30, 75]
+    });
+
+    marker = L.marker([lat, lon], { icon: personIcon, draggable: true }).addTo(map);
+
+    // Actualizar coordenadas cuando el usuario deje de arrastrar el muñequito
+    marker.on('dragend', function(e) {
+        const position = marker.getLatLng();
+        seleccionarLugarPorCoordenadas(position.lat, position.lng);
+    });
+
     document.getElementById('selected-location').textContent = "Detectando...";
     btn.disabled = false;
 
     try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10`);
+        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
         const data = await response.json();
 
-        if (data && data.address) {
-            const ciudad = data.address.city || data.address.town || data.address.village || data.address.county || "Ubicación rural";
-            const provincia = (data.address.state || data.address.province || "").replace("Provincia de ", "").trim();
-            
+        if (data) {
+            // Validar que el punto seleccionado esté dentro de Ecuador
+            if (data.countryCode && data.countryCode !== "EC") {
+                document.getElementById('selected-location').textContent = "Selección fuera de Ecuador";
+                btn.disabled = true;
+                if (marker) map.removeLayer(marker);
+                toggleError();
+                return;
+            }
+
+            const ciudad = data.city || data.locality || "Ubicación rural";
+            const provincia = (data.principalSubdivision || "").replace("Provincia de ", "").trim();
+
             document.getElementById('selected-location').textContent = ciudad;
             btn.dataset.ciudad = ciudad;
             btn.dataset.provincia = provincia;
             marker.bindPopup(`<b>${ciudad}</b>`).openPopup();
+            
+            // Vestir al muñequito según la región
+            actualizarVestimenta(provincia, marker);
 
-            // Activar clima en el fondo inmediatamente
-            obtenerClima(ciudad, lat, lon).then(clima => actualizarFondoDinamico(clima));
+            // Esperar al clic de "Consultar Oráculo" para mostrar el clima animado en el fondo
+            
 
             if (abrirAuto) {
                 abrirOraculo(lat, lon, ciudad, provincia);
@@ -154,7 +183,7 @@ async function seleccionarLugarPorCoordenadas(lat, lon, abrirAuto = false) {
 async function abrirOraculo(lat, lon, ciudad, provincia) {
     const loadingDiv = document.getElementById('loading');
     const nacionalidadManual = document.getElementById('nacionalidad').value;
-    
+
     // 1. Detección de cultura por provincia (Fallback)
     const mapping = MAPPING_PROVINCIAS[provincia] || { pueblo: "Kichwa", asentamientos: "Territorio Ecuatoriano" };
     const nacFinal = nacionalidadManual || normalizarNacionalidad(mapping.pueblo);
@@ -164,37 +193,66 @@ async function abrirOraculo(lat, lon, ciudad, provincia) {
     try {
         // Llamada al Backend Java (Javalin) en Azure
         const response = await fetch(`http://20.38.36.141:8080/api/consultar?ciudad=${encodeURIComponent(ciudad)}&nacionalidad=${encodeURIComponent(nacFinal)}`);
-        
+
         if (!response.ok) throw new Error("Error en la respuesta del servidor");
-        
+
         const data = await response.json();
         const { clima, recomendacion } = data;
 
-        // Consultas paralelas para contenido extra (Wiki e Imágenes)
-        const [history, images] = await Promise.all([
-            obtenerHistoriaWiki(nacFinal),
-            obtenerImagenCultural(nacFinal)
-        ]);
+        // Consultas paralelas para contenido extra (Wiki, Imágenes y Clima Preciso Front-End)
+        let history = "Sabiduría en camino...";
+        let images = null;
+        let climaReal = null;
+
+        try {
+            [history, images, climaReal] = await Promise.all([
+                obtenerHistoriaWiki(nacFinal),
+                obtenerImagenCultural(nacFinal),
+                obtenerClima(ciudad, lat, lon) // <-- Solapamos usando lat/lon exacto aquí
+            ]);
+        } catch (e) {
+            console.warn("Fallo parcial en consultas extra, usando fallback", e);
+        }
+
+        const lunaInfo = { faseActual: clima.moonPhase };
+
+        // SOLAPAMIENTO: Si tenemos el clima exacto (climaReal), lo usamos visualmente y para la recomendación. 
+        // Si no, caemos en la data original del servidor.
+        const climaAdaptado = climaReal ? {
+            temp: climaReal.temp,
+            humedad: climaReal.humedad || "--",
+            desc: climaReal.desc,
+            condicion: climaReal.condicion,
+            icon: climaReal.icon,
+            isNight: climaReal.isNight
+        } : {
+            temp: clima.temperature,
+            humedad: "--",
+            desc: mapConditionToUI(clima.condition),
+            condicion: mapConditionToUI(clima.condition),
+            icon: mapConditionToIcon(clima.condition, false),
+            isNight: false
+        };
+
+        // Extraemos recomendación precisa sincronizada con el clima visual o usamos el backend
+        let recFinal = recomendacion;
+        if (climaReal && typeof REGLAS_ANCESTRALES !== 'undefined') {
+            const condMap = { "Lluvia": "Rain", "Niebla": "Cloudy", "Viento": "Cloudy", "Despejado": "Clear" };
+            const condicionGringa = condMap[climaReal.condicion] || "Clear";
+            const reqLocal = obtenerRecomendacion(nacFinal, lunaInfo.faseActual, condicionGringa);
+            if (reqLocal && reqLocal.labores_tierra) {
+                recFinal = reqLocal;
+            }
+        }
 
         // Adaptar nombres de campos (El backend usa snake_case en JSON por Jackson)
         const recAdaptada = {
-            labores_tierra: recomendacion.labores_tierra,
-            rituales_danzas: recomendacion.rituales_danzas,
-            vestimenta: recomendacion.vestimenta,
-            gastronomia: recomendacion.gastronomia,
-            medicina: recomendacion.medicina
+            labores_tierra: recFinal.labores_tierra,
+            rituales_danzas: recFinal.rituales_danzas,
+            vestimenta: recFinal.vestimenta,
+            gastronomia: recFinal.gastronomia,
+            medicina: recFinal.medicina
         };
-
-        const climaAdaptado = {
-            temp: clima.temperature,
-            humedad: clima.humidity || "--", // El backend actual no devuelve humedad aún, podríamos agregarlo
-            desc: clima.condition,
-            condicion: mapConditionToUI(clima.condition),
-            icon: mapConditionToIcon(clima.condition, false), // Ajustar según necesidad
-            isNight: false // Ajustar si el backend provee esta info
-        };
-
-        const lunaInfo = { faseActual: clima.moonPhase };
 
         actualizarFondoDinamico(climaAdaptado);
         poblarInterfaz(climaAdaptado, lunaInfo, recAdaptada, nacFinal, history, images, mapping.asentamientos, ciudad, provincia);
@@ -274,10 +332,10 @@ function poblarInterfaz(clima, luna, rec, nac, hist, gallery, territories, ciuda
     document.getElementById('results-sheet').classList.add('active');
     document.querySelector('.top-bar').classList.add('hidden');
     document.querySelector('.bottom-action-bar').classList.add('hidden');
-    
-    if (map) { 
-        map.dragging.disable(); 
-        map.scrollWheelZoom.disable(); 
+
+    if (map) {
+        map.dragging.disable();
+        map.scrollWheelZoom.disable();
         map.doubleClickZoom.disable();
     }
 }
@@ -301,10 +359,10 @@ function cerrarResultados() {
     document.getElementById('results-sheet').classList.remove('active');
     document.querySelector('.top-bar').classList.remove('hidden');
     document.querySelector('.bottom-action-bar').classList.remove('hidden');
-    
-    if (map) { 
-        map.dragging.enable(); 
-        map.scrollWheelZoom.enable(); 
+
+    if (map) {
+        map.dragging.enable();
+        map.scrollWheelZoom.enable();
         map.doubleClickZoom.enable();
     }
 }
@@ -341,16 +399,16 @@ async function obtenerClima(ciudad, lat, lon) {
         const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=es`;
         const resp = await fetch(url);
         const data = await resp.json();
-        
+
         if (data.cod !== 200) throw new Error(data.message);
 
         return {
             temp: data.main.temp,
             humedad: data.main.humidity,
             desc: data.weather[0].description,
-            condicion: (["Rain", "Thunderstorm", "Drizzle"].includes(data.weather[0].main)) ? "Lluvia" : 
-                       (["Mist", "Smoke", "Haze", "Fog"].includes(data.weather[0].main)) ? "Niebla" :
-                       (data.wind.speed > 5) ? "Viento" : "Despejado",
+            condicion: (["Rain", "Thunderstorm", "Drizzle"].includes(data.weather[0].main)) ? "Lluvia" :
+                (["Mist", "Smoke", "Haze", "Fog"].includes(data.weather[0].main)) ? "Niebla" :
+                    (data.wind.speed > 5) ? "Viento" : "Despejado",
             icon: data.weather[0].icon,
             viento: data.wind.speed,
             isNight: data.weather[0].icon.includes('n')
@@ -387,7 +445,7 @@ function calcularFaseLunar(date) {
 }
 
 function obtenerRecomendacion(nac, fase, cond) {
-    try { return REGLAS_ANCESTRALES[nac]['fases_lunares'][fase][cond]; } 
+    try { return REGLAS_ANCESTRALES[nac]['fases_lunares'][fase][cond]; }
     catch (e) { return { labores_tierra: "Prudencia.", rituales_danzas: "Conexión espiritual.", vestimenta: "Ropa adecuada.", gastronomia: "Alimentos del sector.", medicina: "Infusiones." }; }
 }
 
@@ -395,7 +453,7 @@ function actualizarFondoDinamico(clima) {
     const overlay = document.getElementById('climate-overlay');
     const rainBox = document.getElementById('rain-container');
     const badge = document.getElementById('climate-badge');
-    
+
     overlay.className = '';
     rainBox.innerHTML = '';
     rainBox.style.display = 'none';
@@ -434,7 +492,7 @@ function generarNiebla(box) {
         const fog = document.createElement('div');
         fog.className = 'fog-layer';
         fog.style.animationDelay = (i * 2) + 's';
-        fog.style.background = `radial-gradient(circle at ${Math.random()*100}% ${Math.random()*100}%, rgba(255,255,255,0.2) 0%, transparent 60%)`;
+        fog.style.background = `radial-gradient(circle at ${Math.random() * 100}% ${Math.random() * 100}%, rgba(255,255,255,0.2) 0%, transparent 60%)`;
         box.appendChild(fog);
     }
 }
@@ -448,7 +506,7 @@ function generarViento(box, count) {
         const width = (80 + Math.random() * 150) + 'px';
         const dur = (0.8 + Math.random() * 1.5) + 's';
         const delay = Math.random() * 3 + 's';
-        
+
         particle.style.top = top + '%';
         particle.style.width = width;
         particle.style.animationDuration = dur;
@@ -465,7 +523,7 @@ function generarLluvia(box, count) {
         const left = Math.random() * 100;
         const dur = (0.4 + Math.random() * 0.6) + 's';
         const delay = Math.random() * 2 + 's';
-        
+
         drop.style.left = left + '%';
         drop.style.height = (30 + Math.random() * 30) + 'px';
         drop.style.animationDuration = dur;
@@ -476,6 +534,10 @@ function generarLluvia(box, count) {
 
 function toggleInfo() {
     document.getElementById('info-panel').classList.toggle('hidden');
+}
+
+function toggleError() {
+    document.getElementById('error-panel').classList.toggle('hidden');
 }
 
 function actualizarDescripcionCosmovision(nac) {
@@ -490,12 +552,126 @@ function actualizarDescripcionCosmovision(nac) {
 function toggleSaber(id) {
     const content = document.getElementById(id);
     const wasActive = content.classList.contains('active');
-    document.querySelectorAll('.saber-content').forEach(el => { 
-        el.classList.remove('active'); 
-        el.style.maxHeight = null; 
+    document.querySelectorAll('.saber-content').forEach(el => {
+        el.classList.remove('active');
+        el.style.maxHeight = null;
     });
     if (!wasActive) {
         content.classList.add('active');
         content.style.maxHeight = "200px";
     }
+}
+
+// -------------------------------------------------------------
+// VESTIMENTA DEL MUÑEQUITO SEGÚN REGIÓN (SVG DETALLADO)
+// -------------------------------------------------------------
+function actualizarVestimenta(provincia, markerObj) {
+    let region = "sierra"; // default
+    const costa = ["Guayas", "Santa Elena", "Manabí", "El Oro", "Los Ríos", "Esmeraldas"];
+    const oriente = ["Napo", "Orellana", "Pastaza", "Morona Santiago", "Zamora Chinchipe", "Sucumbíos"];
+    const insular = ["Galápagos"];
+
+    if (costa.includes(provincia)) region = "costa";
+    else if (oriente.includes(provincia)) region = "oriente";
+    else if (insular.includes(provincia)) region = "insular";
+
+    const svgIcon = getPegmanSVG(region);
+
+    const customPersonIcon = L.divIcon({
+        className: 'person-marker custom-outfit',
+        html: `<div class="person-marker-content">${svgIcon}</div>`,
+        iconSize: [60, 80],
+        iconAnchor: [30, 75]
+    });
+
+    markerObj.setIcon(customPersonIcon);
+}
+
+function getPegmanSVG(region) {
+    const baseBody = `
+        <ellipse cx="50" cy="120" rx="20" ry="8" fill="rgba(0,0,0,0.3)" />
+        <path d="M 35 115 L 35 55 C 35 35, 65 35, 65 55 L 65 115 Z" fill="#fcd34d"/>
+        <circle cx="50" cy="35" r="22" fill="#fcd34d"/>
+    `;
+    
+    let faces = `
+        <circle cx="42" cy="35" r="3.5" fill="#333"/>
+        <circle cx="58" cy="35" r="3.5" fill="#333"/>
+        <path d="M 45 44 Q 50 50 55 44" stroke="#333" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    `;
+
+    let attire = "";
+
+    if (region === 'sierra') {
+        attire = `
+            <!-- Poncho Andino -->
+            <path d="M 32 55 L 50 95 L 68 55 Z" fill="#b91c1c"/>
+            <path d="M 39 55 L 50 85 L 61 55 Z" fill="#1e3a8a"/>
+            <!-- Sombrero de Paño -->
+            <ellipse cx="50" cy="18" rx="30" ry="8" fill="#1e293b" />
+            <path d="M 34 18 C 34 -2, 66 -2, 66 18 Z" fill="#1e293b" />
+            <path d="M 35 15 C 35 5, 65 5, 65 15 Z" fill="#b91c1c" />
+        `;
+    } else if (region === 'costa') {
+        attire = `
+            <!-- Guayabera Blanca -->
+            <path d="M 34 55 C 34 40, 66 40, 66 55 L 66 90 L 34 90 Z" fill="#ffffff"/>
+            <line x1="45" y1="50" x2="45" y2="90" stroke="#f1f5f9" stroke-width="2"/>
+            <line x1="55" y1="50" x2="55" y2="90" stroke="#f1f5f9" stroke-width="2"/>
+            <!-- Sombrero Toquilla (Panamá) -->
+            <ellipse cx="50" cy="15" rx="34" ry="9" fill="#fef08a"/>
+            <path d="M 37 15 C 37 -5, 63 -5, 63 15 Z" fill="#fef08a"/>
+            <path d="M 37 12 C 37 2, 63 2, 63 12 Z" fill="#0f172a"/>
+        `;
+    } else if (region === 'oriente') {
+        attire = `
+            <!-- Pintura Facial (Achiote) -->
+            <line x1="30" y1="38" x2="40" y2="38" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round"/>
+            <line x1="60" y1="38" x2="70" y2="38" stroke="#ef4444" stroke-width="3.5" stroke-linecap="round"/>
+            <!-- Ropa -->
+            <path d="M 34 85 L 66 85 L 61 105 L 39 105 Z" fill="#78350f"/>
+            <!-- Lanza de Chonta -->
+            <line x1="20" y1="20" x2="20" y2="120" stroke="#451a03" stroke-width="4.5" stroke-linecap="round"/>
+            <polygon points="15,30 20,2 25,30" fill="#cbd5e1"/>
+            <!-- Corona de Plumas -->
+            <path d="M 35 20 Q 25 -5 35 10" stroke="#ef4444" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <path d="M 45 18 Q 40 -15 50 0" stroke="#f59e0b" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <path d="M 55 18 Q 60 -15 50 0" stroke="#10b981" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <path d="M 65 20 Q 75 -5 65 10" stroke="#3b82f6" stroke-width="5" fill="none" stroke-linecap="round"/>
+            <path d="M 28 15 Q 40 25 72 15" stroke="#fbbf24" stroke-width="4" fill="none" stroke-linecap="round"/>
+        `;
+    } else if (region === 'insular') {
+        faces = `
+            <!-- Gafas de Sol -->
+            <rect x="34" y="28" width="14" height="10" rx="3" fill="#1e293b"/>
+            <rect x="52" y="28" width="14" height="10" rx="3" fill="#1e293b"/>
+            <line x1="48" y1="32" x2="52" y2="32" stroke="#1e293b" stroke-width="3"/>
+            <line x1="28" y1="32" x2="34" y2="32" stroke="#1e293b" stroke-width="2"/>
+            <line x1="66" y1="32" x2="72" y2="32" stroke="#1e293b" stroke-width="2"/>
+            <!-- Sonrisa de turista -->
+            <path d="M 45 44 Q 50 50 55 44" stroke="#333" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        `;
+        attire = `
+            <!-- Camisa Floral -->
+            <path d="M 34 55 C 34 35, 66 35, 66 55 L 66 90 L 34 90 Z" fill="#38bdf8"/>
+            <path d="M 45 65 Q 50 60 55 65 Q 50 70 45 65" fill="#fde047"/>
+            <path d="M 55 80 Q 60 75 65 80 Q 60 85 55 80" fill="#fef08a"/>
+            <!-- Pantalones Cortos -->
+            <path d="M 34 90 L 66 90 L 66 108 L 53 108 L 50 95 L 47 108 L 34 108 Z" fill="#0284c7"/>
+            <!-- Cámara Fotográfica -->
+            <rect x="40" y="65" width="20" height="15" rx="3" fill="#0f172a"/>
+            <rect x="43" y="62" width="6" height="3" fill="#cbd5e1"/>
+            <circle cx="50" cy="72.5" r="5" fill="#94a3b8"/>
+            <circle cx="50" cy="72.5" r="2.5" fill="#020617"/>
+            <path d="M 40 65 Q 50 45 60 65" stroke="#0f172a" stroke-width="1.5" fill="none"/>
+        `;
+    }
+
+    return `
+        <svg viewBox="0 0 100 130" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            ${baseBody}
+            ${attire}
+            ${faces}
+        </svg>
+    `;
 }
