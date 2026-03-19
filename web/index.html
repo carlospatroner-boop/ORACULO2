@@ -19,6 +19,7 @@
     <div id="map-background"></div>
     <div id="climate-overlay"></div>
     <div id="rain-container"></div>
+    <div id="stars-container"></div>
     <div id="climate-badge"></div>
 
     <!-- UI CONTAINER -->
@@ -28,7 +29,10 @@
         <div class="top-bar glass-panel">
             <div class="top-header">
                 <h1>Oráculo <span class="accent">Ancestral</span></h1>
-                <button id="btn-info" class="icon-btn-gold"><i class="fas fa-info-circle"></i></button>
+                <div class="header-controls">
+                    <button id="btn-music" class="icon-btn-gold" title="Música de Ambiente"><i class="fas fa-music"></i></button>
+                    <button id="btn-info" class="icon-btn-gold"><i class="fas fa-info-circle"></i></button>
+                </div>
             </div>
             <div class="compact-select-gold">
                 <i class="fas fa-users"></i>
@@ -105,6 +109,7 @@
                         <div class="panel-header">
                             <i class="fas fa-scroll"></i>
                             <h3>SABIDURÍAS</h3>
+                            <button class="speak-btn" onclick="readSection('sabidurias')" title="Leer Sabidurías"><i class="fas fa-volume-up"></i></button>
                         </div>
                         <div class="identity-tag">CULTURA: <span id="res-nacionalidad">--</span></div>
                         <div class="wisdom-accordion scroll-internal">
@@ -122,6 +127,9 @@
 
                             <button class="saber-btn" onclick="toggleSaber('cont-medicina')">Medicina Ancestral</button>
                             <div id="cont-medicina" class="saber-content"><p id="card-medicina">...</p></div>
+
+                            <button class="saber-btn" onclick="toggleSaber('cont-lexico')">Léxico Sagrado</button>
+                            <div id="cont-lexico" class="saber-content"><p id="card-lexico" class="italic-gold">...</p></div>
                         </div>
                     </div>
                 </div>
@@ -149,6 +157,7 @@
                         <div class="panel-header">
                             <i class="fas fa-book-open"></i>
                             <h3>RELATO TRADICIONAL</h3>
+                            <button class="speak-btn" onclick="readSection('relato')" title="Leer Relato"><i class="fas fa-volume-up"></i></button>
                         </div>
                         <div class="myth-box-full scroll-internal">
                             <p id="res-myth-text">"Relato del ancestro..."</p>
@@ -160,6 +169,7 @@
                         <div class="panel-header">
                             <i class="fas fa-monument"></i>
                             <h3>HISTORIA DEL PUEBLO</h3>
+                            <button class="speak-btn" onclick="readSection('historia')" title="Leer Historia"><i class="fas fa-volume-up"></i></button>
                         </div>
                         <div class="history-box scroll-internal">
                             <p id="card-historia">...</p>
@@ -201,6 +211,9 @@
         </div>
 
     </div>
+
+    <!-- AUDIO SYSTEM -->
+    <audio id="bg-music" loop prefetch="auto"></audio>
 
     <!-- SCRIPTS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
