@@ -3,6 +3,31 @@ let map;
 let marker;
 let imagenesActuales = [];
 let indiceImagenActual = 0;
+let isMusicEnabled = false; // Manual por defecto
+let audioActual = null;
+
+const LEXICO_ANCESTRAL = {
+    "Kichwa": { palabra: "Alli Shamushca", significado: "Bienvenido (Que vengas con bien)" },
+    "Shuar": { palabra: "Nakarum", significado: "Esperanza / Paz" },
+    "Waorani": { palabra: "Waponi", significado: "Todo bien / Salud" },
+    "Tsáchila": { palabra: "Sara", significado: "Maíz (Símbolo de vida)" },
+    "Afroecuatoriano": { palabra: "Arrullo", significado: "Canto sagrado de paz" },
+    "Montubio": { palabra: "Amorfino", significado: "Verso del corazón" },
+    "Galapagueño": { palabra: "Halcón", significado: "Guardián de los cielos" },
+    "Default": { palabra: "Ancestros", significado: "Los que guían nuestro camino" }
+};
+
+const MUSIC_DATABASE = {
+    // Rutas Locales (Debes descargar los archivos a la carpeta web/audio/)
+    "Kichwa": "./audio/sierra.mp3",
+    "Shuar": "./audio/amazonia.mp3",
+    "Waorani": "./audio/amazonia.mp3",
+    "Tsáchila": "./audio/amazonia.mp3",
+    "Afroecuatoriano": "./audio/costa.mp3",
+    "Montubio": "./audio/costa.mp3",
+    "Galapagueño": "./audio/galapagos.mp3",
+    "Default": "./audio/inicio.mp3"
+};
 
 const ICONOS_LUNARES = {
     "Luna Nueva": "🌑",
@@ -42,10 +67,65 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-close-error').addEventListener('click', toggleError);
     document.getElementById('btn-close-sheet').addEventListener('click', cerrarResultados);
     document.getElementById('btn-back-map').addEventListener('click', cerrarResultados);
+    document.getElementById('btn-music').addEventListener('click', toggleMusic);
+
+    // Inicializar estado visual del botón Música
+    const musicBtn = document.getElementById('btn-music');
+    if (isMusicEnabled) {
+        musicBtn.classList.add('active');
+        musicBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    } else {
+        musicBtn.classList.remove('active');
+        musicBtn.innerHTML = '<i class="fas fa-music"></i>';
+    }
 
     // Inicializar clima en el mapa
     inicializarMapaClimatico();
+
+    // Inicializar Ciclo Solar
+    actualizarCicloSolar();
+    setInterval(actualizarCicloSolar, 60000); // Revisar cada minuto
 });
+
+function actualizarCicloSolar() {
+    const hora = new Date().getHours();
+    const body = document.body;
+    const starBox = document.getElementById('stars-container');
+
+    body.className = ''; // Limpiar
+    
+    if (hora >= 5 && hora < 7) {
+        body.classList.add('dawn');
+    } else if (hora >= 7 && hora < 17) {
+        body.classList.add('day');
+    } else if (hora >= 17 && hora < 19) {
+        body.classList.add('sunset');
+    } else {
+        body.classList.add('night');
+        generarEstrellas(starBox, 100);
+    }
+}
+
+function generarEstrellas(box, count) {
+    if (box.children.length > 0) return; // Ya generado
+    for (let i = 0; i < count; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+        const size = Math.random() * 3 + 'px';
+        const delay = Math.random() * 5 + 's';
+        const dur = (2 + Math.random() * 3) + 's';
+
+        star.style.left = x + '%';
+        star.style.top = y + '%';
+        star.style.width = size;
+        star.style.height = size;
+        star.style.setProperty('--d', delay);
+        star.style.animationDuration = dur;
+        box.appendChild(star);
+    }
+}
 
 function inicializarMapa() {
     const bounds = L.latLngBounds(L.latLng(-6.0, -92.0), L.latLng(2.5, -75.0));
@@ -328,6 +408,15 @@ function poblarInterfaz(clima, luna, rec, nac, hist, gallery, territories, ciuda
         actualizarImagenSlider();
     }
 
+    // Léxico Sagrado
+    const lexico = LEXICO_ANCESTRAL[nac] || LEXICO_ANCESTRAL['Default'];
+    document.getElementById('card-lexico').innerHTML = `"${lexico.palabra}"<br><small>${lexico.significado}</small>`;
+
+    // Música según nacionalidad
+    if (isMusicEnabled) {
+        reproducirMusicaNacionalidad(nac);
+    }
+
     // Efectos de Interfaz
     document.getElementById('results-sheet').classList.add('active');
     document.querySelector('.top-bar').classList.add('hidden');
@@ -359,6 +448,14 @@ function cerrarResultados() {
     document.getElementById('results-sheet').classList.remove('active');
     document.querySelector('.top-bar').classList.remove('hidden');
     document.querySelector('.bottom-action-bar').classList.remove('hidden');
+
+    detenerLecturaVoz();
+    limpiarEfectosClimaticos();
+    
+    // Al volver al mapa, volver a música de inicio
+    if (isMusicEnabled) {
+        reproducirMusicaNacionalidad('Default');
+    }
 
     if (map) {
         map.dragging.enable();
@@ -483,6 +580,22 @@ function actualizarFondoDinamico(clima) {
     }
 
     if (badge) badge.style.display = 'block';
+}
+
+function limpiarEfectosClimaticos() {
+    const overlay = document.getElementById('climate-overlay');
+    const rainBox = document.getElementById('rain-container');
+    const badge = document.getElementById('climate-badge');
+
+    if (overlay) overlay.className = '';
+    if (rainBox) {
+        rainBox.innerHTML = '';
+        rainBox.style.display = 'none';
+    }
+    if (badge) {
+        badge.textContent = '';
+        badge.style.display = 'none';
+    }
 }
 
 function generarNiebla(box) {
@@ -675,3 +788,104 @@ function getPegmanSVG(region) {
         </svg>
     `;
 }
+
+// -------------------------------------------------------------
+// SISTEMA DE AUDIO Y VOZ
+// -------------------------------------------------------------
+
+function toggleMusic() {
+    const btn = document.getElementById('btn-music');
+    isMusicEnabled = !isMusicEnabled;
+    
+    if (isMusicEnabled) {
+        btn.classList.add('active');
+        btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        const nac = document.getElementById('res-nacionalidad').textContent;
+        const nacLimpia = (nac && nac !== '--') ? nac : 'Default';
+        reproducirMusicaNacionalidad(nacLimpia);
+    } else {
+        btn.classList.remove('active');
+        btn.innerHTML = '<i class="fas fa-music"></i>';
+        if (audioActual) audioActual.pause();
+    }
+}
+
+async function reproducirMusicaNacionalidad(nac) {
+    const url = MUSIC_DATABASE[nac] || MUSIC_DATABASE['Default'];
+    
+    // Si ya está sonando esa canción, no la reiniciamos
+    if (audioActual && audioActual.src.includes(url.replace('.', '')) && !audioActual.paused) return;
+
+    try {
+        if (audioActual) {
+            audioActual.pause();
+            audioActual.currentTime = 0;
+        }
+
+        audioActual = new Audio(url);
+        audioActual.loop = true;
+        audioActual.volume = 0.5;
+
+        audioActual.addEventListener("error", (e) => {
+            console.error("Error del audio. Ruta:", url);
+            console.error("currentSrc:", audioActual.currentSrc);
+            console.error("error code:", audioActual.error ? audioActual.error.code : "sin código");
+        });
+
+        if (isMusicEnabled) {
+            await audioActual.play();
+            console.log("Sonando correctamente:", url);
+        }
+    } catch (error) {
+        console.error("Error al reproducir audio:", error);
+        console.error("Intenta descargar el archivo a la carpeta /audio/");
+    }
+}
+
+// Lectura de Voz (Text-to-Speech)
+window.readSection = function(type) {
+    detenerLecturaVoz();
+    
+    let text = "";
+    if (type === 'sabidurias') {
+        text = `Sabidurías de la cultura ${document.getElementById('res-nacionalidad').textContent}. `;
+        text += "Labores de tierra: " + document.getElementById('card-labores').textContent + ". ";
+        text += "Rituales y danzas: " + document.getElementById('card-rituales').textContent + ". ";
+        text += "Vestimenta: " + document.getElementById('card-vestimenta').textContent + ". ";
+        text += "Gastronomía: " + document.getElementById('card-gastronomia').textContent + ". ";
+        text += "Medicina: " + document.getElementById('card-medicina').textContent + ". ";
+    } else if (type === 'relato') {
+        text = document.getElementById('res-myth-text').textContent;
+    } else if (type === 'historia') {
+        text = "Historia del pueblo. " + document.getElementById('card-historia').textContent;
+    }
+
+    if (!text || text.includes('...')) return;
+
+    if (!('speechSynthesis' in window)) {
+        alert("Lo siento, tu navegador no soporta lectura de voz.");
+        return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+
+    // Feedback visual
+    const btn = event ? event.currentTarget : null;
+    if (btn && btn.classList) btn.classList.add('active');
+    
+    utterance.onend = () => {
+        if (btn && btn.classList) btn.classList.remove('active');
+    };
+
+    window.speechSynthesis.speak(utterance);
+};
+
+function detenerLecturaVoz() {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+    }
+    document.querySelectorAll('.speak-btn').forEach(b => b.classList.remove('active'));
+}
