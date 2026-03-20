@@ -38,9 +38,9 @@
                 <i class="fas fa-users"></i>
                 <select id="nacionalidad">
                     <option value="" selected>Autodetectar Cultura...</option>
+                    <option value="Montubio">Montubio (Costa)</option>
                     <option value="Kichwa">Kichwa (Sierra)</option>
                     <option value="Shuar">Shuar (Amazonía)</option>
-                    <option value="Montubio">Montubio (Costa)</option>
                     <option value="Afroecuatoriano">Afroecuatoriano</option>
                     <option value="Tsáchila">Tsáchila</option>
                     <option value="Waorani">Waorani</option>
@@ -73,6 +73,12 @@
                     <h2>SABIDURÍA COSMOBIOLÓGICA</h2>
                     <div class="subtitle">Conexión con el entorno y los ancestros</div>
                 </div>
+
+                <!-- Etiqueta de cultura movida al header para mayor visibilidad -->
+                <div class="identity-tag-main">
+                    <i class="fas fa-crown"></i> CULTURA: <span id="res-nacionalidad">--</span>
+                </div>
+
                 <div class="header-actions">
                     <button id="btn-back-map" class="action-btn-gold"><i class="fas fa-map"></i> Mapa</button>
                     <button id="btn-close-sheet" class="icon-btn-close"><i class="fas fa-times"></i></button>
@@ -111,7 +117,7 @@
                             <h3>SABIDURÍAS</h3>
                             <button class="speak-btn" onclick="readSection('sabidurias')" title="Leer Sabidurías"><i class="fas fa-volume-up"></i></button>
                         </div>
-                        <div class="identity-tag">CULTURA: <span id="res-nacionalidad">--</span></div>
+
                         <div class="wisdom-accordion scroll-internal">
                             <button class="saber-btn" onclick="toggleSaber('cont-siembra')">Labores de Tierra</button>
                             <div id="cont-siembra" class="saber-content"><p id="card-labores">...</p></div>

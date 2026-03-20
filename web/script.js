@@ -44,6 +44,15 @@ document.addEventListener('DOMContentLoaded', () => {
         actualizarDescripcionCosmovision(e.target.value);
     });
 
+    // Activar música al interactuar con la página por primera vez
+    const activarMusicaInicial = () => {
+        if (!isMusicEnabled) {
+            toggleMusic();
+        }
+        document.removeEventListener('click', activarMusicaInicial);
+    };
+    document.addEventListener('click', activarMusicaInicial);
+
     // BOTONES PRINCIPALES (CORREGIDO Y CENTRALIZADO)
     document.getElementById('btn-consultar').addEventListener('click', () => {
         const btn = document.getElementById('btn-consultar');
@@ -85,6 +94,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializar Ciclo Solar
     actualizarCicloSolar();
     setInterval(actualizarCicloSolar, 60000); // Revisar cada minuto
+});
+
+// Reproducir música y lectura por defecto una vez cargado todo
+window.addEventListener('load', () => {
+    // Al abrir que aparezca la nacionalidad más grande (Montubio por defecto) 
+    // y colocar música relacionada a la nacionalidad
+    const selectNacionalidad = document.getElementById('nacionalidad');
+    // Asegurarse que Autodetectar sea el seleccionado por defecto como se solicitó
+    selectNacionalidad.value = '';
+    
+    // Forzamos la activacion de la musica para que inicie de una sola vez
+    isMusicEnabled = true;
+    const btn = document.getElementById('btn-music');
+    if (btn) {
+        btn.classList.add('active');
+        btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    }
+    
+    // Disparar la actualizacion inicial (esto activará la lectura y la musica al primer clic si el browser bloquea autoplay)
+    // Most browsers block autoplay of audio and speech synthesis until the user interacts with the document.
+    // So we'll try, but it might only trigger after the first click.
+    actualizarDescripcionCosmovision('');
+    
+    // Si el navegador bloqueó el audio, lo intentaremos en el primer click en cualquier parte
+    const playOnInteract = () => {
+         if (isMusicEnabled && audioActual && audioActual.paused) {
+             audioActual.play().catch(e => console.log("Autoplay blocked until interact"));
+         }
+         // Y si no leyó el relato inicial, lo leemos ahora
+         if (!window.speechSynthesis.speaking && isMusicEnabled) {
+              const nac = document.getElementById('nacionalidad').value || 'Default';
+              if (nac && nac !== 'Default' && REGLAS_ANCESTRALES[nac]) {
+                 const utterance = new SpeechSynthesisUtterance(`"${REGLAS_ANCESTRALES[nac].descripcion}"`);
+                 utterance.lang = 'es-ES';
+                 utterance.rate = 1.0; 
+                 utterance.pitch = 1.0;
+                 utterance.volume = 1.0;
+                 window.speechSynthesis.speak(utterance);
+              }
+         }
+         document.removeEventListener('click', playOnInteract);
+    };
+    document.addEventListener('click', playOnInteract);
 });
 
 function actualizarCicloSolar() {
@@ -262,11 +314,23 @@ async function seleccionarLugarPorCoordenadas(lat, lon, abrirAuto = false) {
 // FUNCIÓN CENTRALIZADA PARA AMBOS BOTONES
 async function abrirOraculo(lat, lon, ciudad, provincia) {
     const loadingDiv = document.getElementById('loading');
-    const nacionalidadManual = document.getElementById('nacionalidad').value;
+    let nacionalidadManual = document.getElementById('nacionalidad').value;
 
     // 1. Detección de cultura por provincia (Fallback)
-    const mapping = MAPPING_PROVINCIAS[provincia] || { pueblo: "Kichwa", asentamientos: "Territorio Ecuatoriano" };
-    const nacFinal = nacionalidadManual || normalizarNacionalidad(mapping.pueblo);
+    const mapping = MAPPING_PROVINCIAS[provincia] || { pueblo: "Montubio", asentamientos: "Territorio Ecuatoriano" };
+    let nacFinal = nacionalidadManual || normalizarNacionalidad(mapping.pueblo);
+
+    // Auto-seleccionar la nacionalidad detectada en el combobox
+    const nacionalidadSelect = document.getElementById('nacionalidad');
+    if (nacionalidadSelect) {
+        for (let i = 0; i < nacionalidadSelect.options.length; i++) {
+            if (nacionalidadSelect.options[i].value === nacFinal) {
+                nacionalidadSelect.selectedIndex = i;
+                actualizarDescripcionCosmovision(nacFinal);
+                break;
+            }
+        }
+    }
 
     loadingDiv.classList.remove('hidden');
 
@@ -371,7 +435,7 @@ function normalizarNacionalidad(nombre) {
     if (nombre.includes("Tsáchila")) return "Tsáchila";
     if (nombre.includes("Waorani")) return "Waorani";
     if (nombre.includes("Galapagu")) return "Galapagueño";
-    return "Kichwa"; // Default
+    return "Montubio"; // Default cambiado a Montubio
 }
 
 function poblarInterfaz(clima, luna, rec, nac, hist, gallery, territories, ciudad, provincia) {
@@ -412,10 +476,21 @@ function poblarInterfaz(clima, luna, rec, nac, hist, gallery, territories, ciuda
     const lexico = LEXICO_ANCESTRAL[nac] || LEXICO_ANCESTRAL['Default'];
     document.getElementById('card-lexico').innerHTML = `"${lexico.palabra}"<br><small>${lexico.significado}</small>`;
 
-    // Música según nacionalidad
-    if (isMusicEnabled) {
-        reproducirMusicaNacionalidad(nac);
+    // Activar música de la nacionalidad y encender el toggle si está apagado
+    if (!isMusicEnabled) {
+        isMusicEnabled = true;
+        const btn = document.getElementById('btn-music');
+        if(btn) {
+            btn.classList.add('active');
+            btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        }
     }
+    reproducirMusicaNacionalidad(nac);
+    
+    // Hablar el relato tradicional automáticamente
+    setTimeout(() => {
+        readSection('relato');
+    }, 1000); // Pequeño retraso para que cargue la UI
 
     // Efectos de Interfaz
     document.getElementById('results-sheet').classList.add('active');
@@ -454,7 +529,12 @@ function cerrarResultados() {
     
     // Al volver al mapa, volver a música de inicio
     if (isMusicEnabled) {
-        reproducirMusicaNacionalidad('Default');
+        const nacionalidadManual = document.getElementById('nacionalidad').value;
+        if(nacionalidadManual) {
+             reproducirMusicaNacionalidad(nacionalidadManual);
+        } else {
+             reproducirMusicaNacionalidad('Default');
+        }
     }
 
     if (map) {
@@ -489,6 +569,9 @@ function actualizarImagenSlider() {
             indicator.appendChild(dot);
         });
     }
+    
+    // Al cambiar la imagen, leemos el nuevo relato automáticamente de forma hablada
+    readSection('relato');
 }
 
 async function obtenerClima(ciudad, lat, lon) {
@@ -656,9 +739,32 @@ function toggleError() {
 function actualizarDescripcionCosmovision(nac) {
     const container = document.getElementById('cosmovision-desc-container');
     const text = document.getElementById('cosmovision-desc');
-    if (nac && REGLAS_ANCESTRALES[nac]) {
+    
+    // Limpiamos el container y paramos lectura de voz anterior si hay
+    detenerLecturaVoz();
+
+    if (nac && typeof REGLAS_ANCESTRALES !== 'undefined' && REGLAS_ANCESTRALES[nac]) {
         text.textContent = `"${REGLAS_ANCESTRALES[nac].descripcion}"`;
         container.classList.remove('hidden');
+        
+        // Si la musica esta activada, cambiar la musica a la nacionalidad seleccionada
+        if(isMusicEnabled) {
+            reproducirMusicaNacionalidad(nac);
+            
+            // Tratamos de leerlo, aunque puede ser bloqueado si no hay interaccion.
+            // Si el user interactuó (cambió el select, isMusicEnabled = true), leerá.
+            setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(`"${REGLAS_ANCESTRALES[nac].descripcion}"`);
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0; // Volumen maximo
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.speak(utterance);
+                }
+            }, 500);
+        }
+
     } else { container.classList.add('hidden'); }
 }
 
@@ -800,8 +906,18 @@ function toggleMusic() {
     if (isMusicEnabled) {
         btn.classList.add('active');
         btn.innerHTML = '<i class="fas fa-volume-up"></i>';
-        const nac = document.getElementById('res-nacionalidad').textContent;
-        const nacLimpia = (nac && nac !== '--') ? nac : 'Default';
+        
+        let nacLimpia = 'Default';
+        // Verificar si la hoja de resultados está abierta
+        if (document.getElementById('results-sheet').classList.contains('active')) {
+            const nac = document.getElementById('res-nacionalidad').textContent;
+            nacLimpia = (nac && nac !== '--') ? nac : 'Default';
+        } else {
+            // Sino, usar la seleccionada en el combo
+            const nacCombo = document.getElementById('nacionalidad').value;
+            nacLimpia = nacCombo || 'Default';
+        }
+
         reproducirMusicaNacionalidad(nacLimpia);
     } else {
         btn.classList.remove('active');
@@ -824,7 +940,7 @@ async function reproducirMusicaNacionalidad(nac) {
 
         audioActual = new Audio(url);
         audioActual.loop = true;
-        audioActual.volume = 0.5;
+        audioActual.volume = 0.2; // Volumen de la música bajado a 0.2 para que el relato se escuche mejor
 
         audioActual.addEventListener("error", (e) => {
             console.error("Error del audio. Ruta:", url);
@@ -869,11 +985,12 @@ window.readSection = function(type) {
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
-    utterance.rate = 0.95;
+    utterance.rate = 1.0; // Velocidad de la voz ajustada para mejor claridad
     utterance.pitch = 1.0;
+    utterance.volume = 1.0; // Volumen al máximo
 
     // Feedback visual
-    const btn = event ? event.currentTarget : null;
+    const btn = window.event ? window.event.currentTarget : document.querySelector(`button[onclick="readSection('${type}')"]`);
     if (btn && btn.classList) btn.classList.add('active');
     
     utterance.onend = () => {
@@ -888,4 +1005,4 @@ function detenerLecturaVoz() {
         window.speechSynthesis.cancel();
     }
     document.querySelectorAll('.speak-btn').forEach(b => b.classList.remove('active'));
-}
+}
