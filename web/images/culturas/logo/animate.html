@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTEQ Advanced AI Assistant Perfeccionado al Máximo</title>
+    <style>
+        /* BASE DE DISEÑO - Limpia y Centrada */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f7f9fc; /* Fondo claro neutro premium */
+            margin: 0;
+            overflow: hidden;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* CONTENEDOR PRINCIPAL - Con sombra sutil y elevación premium */
+        .ai-assistant-container {
+            width: 320px;
+            height: 320px;
+            position: relative;
+            border-radius: 50%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.06); /* Elevación premium */
+            background-color: white;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            
+            /* EFECTO: Giro de Llanta Plana (2D) sobre su eje central (Z) */
+            transform-origin: center;
+            animation: logoMainTurnFlat var(--logo-main-speed) linear infinite;
+        }
+
+        /* SVG - Ocupa todo el contenedor */
+        .uteq-logo-svg {
+            width: 80%;
+            height: 80%;
+            display: block;
+            margin: auto;
+            position: relative;
+            overflow: hidden; 
+            box-sizing: border-box;
+        }
+
+        /* ========================================= */
+        /* DEFINICIONES DE ELEMENTOS VECTORIALES     */
+        /* ========================================= */
+        
+        /* Anillo Exterior Estable con Pulso de Verde Intenso/Tenue */
+        #anillo-exterior {
+            stroke: #ffcd01; /* Oro UTEQ */
+            stroke-width: 2.5;
+            /* Animación de pulso de intensidad del verde */
+            animation: greenPulse 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        /* Textos Curvos Dynamic Simplificados y Legibles */
+        .text-path {
+            fill: white;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .text-path-uteq {
+            fill: white;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        /* DISPERSIÓN ORGÁNICA PLANETARIA Caótica de Figuras */
+        .figura-dispersa {
+            transform-origin: 100px 100px; /* Pivote central exacto */
+            filter: url(#glowFlicker); /* Aplicamos brillo vectorial constante */
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); /* Transiciones suaves */
+        }
+
+        /* Cabeza de Cognición Gris: Órbita Elíptica Caótica 1 */
+        #cabeza-central {
+            fill: #6d6e71;
+            /* Órbita elíptica elíptica en dispersión */
+            animation: headScatter var(--head-speed) ease-in-out infinite, headPulse 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        /* Engranaje Planetario Mecánico: Órbita Elíptica Caótica 2 (diferente dirección) */
+        #engranaje {
+            transform-origin: center;
+            fill: #ffcd01;
+            stroke: white;
+            stroke-width: 1;
+            /* Órbita elíptica elíptica en dispersión */
+            animation: gearScatter var(--gear-speed) ease-in-out infinite;
+        }
+
+        /* Átomo Cuántico con Brillo: Vibración y Órbita concéntrica */
+        #atomo {
+            transform-origin: center;
+            stroke: #007d3c;
+            stroke-width: 1.5;
+            fill: none;
+            /* Vibración cuántica rápida y órbita concéntrica */
+            animation: atomOrbital var(--atom-speed) linear infinite, atomVibrate 0.3s linear infinite;
+        }
+
+        /* Múltiples Destellos Secuenciales (Flicker) */
+        .destello {
+            opacity: 0;
+            animation: flickerFlicker var(--flicker-speed) linear infinite;
+        }
+
+        /* Circuitos Vectoriales */
+        .circuito {
+            stroke: #ffcd01;
+            stroke-width: 1.5;
+            fill: none;
+            stroke-linecap: round;
+        }
+
+        /* Halo de Energía Externo */
+        #halo-energia {
+            transform-origin: center;
+            fill: none;
+            stroke: #007d3c;
+            stroke-width: 6;
+            opacity: 0;
+            filter: url(#glowFlicker);
+        }
+
+        /* ========================================= */
+        /* KEYFRAMES - Coreografías de Movimiento     */
+        /* ========================================= */
+
+        /* GIRO DE LLANTA PLANA (2D) sobre su eje central (Z) */
+        @keyframes logoMainTurnFlat {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* PULSO DE INTENSIDAD DEL VERDE (Intenso / Tenue) */
+        @keyframes greenPulse {
+            0%, 100% { fill: #007d3c; stroke: #ffcd01; } /* Verde UTEQ base */
+            50% { fill: #00bf5c; stroke: #ffdf01; } /* Verde Neón Intenso / Oro Brillante */
+        }
+
+        /* DISPERSIÓN ORGÁNICA PLANETARIA Caótica 1 (Cabeza: elíptica suave y dispersión) */
+        @keyframes headScatter {
+            0%, 100% { transform: scale(1) translate(0px, 0px) rotate(0deg); fill: #6d6e71; }
+            30% { transform: scale(1.02) translate(5px, -3px) rotate(10deg); fill: #8d8f92; } /* Se dispersa sup-der y rota */
+            70% { transform: scale(0.98) translate(-2px, 3px) rotate(-10deg); fill: #6d6e71; } /* Se dispersa inf-izq y rota */
+        }
+
+        /* DISPERSIÓN ORGÁNICA PLANETARIA Caótica 2 (Engranaje: elíptica elíptica más pronunciada, diferente dirección) */
+        @keyframes gearScatter {
+            0%, 100% { transform: scale(1) translate(0px, 0px) rotate(0deg); fill: #ffcd01; }
+            25% { transform: scale(0.95) translate(-5px, 4px) rotate(-20deg); fill: #ffdf01; } /* Se dispersa inf-izq y rota */
+            50% { transform: scale(1.05) translate(4px, -2px) rotate(30deg); fill: #ffd301; } /* Se dispersa sup-der y rota */
+            75% { transform: scale(1) translate(-3px, -4px) rotate(-10deg); fill: #ffcd01; } /* Se dispersa sup-izq y rota */
+        }
+
+        /* Órbita Concéntrica y Vibración del Átomo */
+        @keyframes atomOrbital {
+            0% { transform: rotate(0deg) translate(0px, 0px); }
+            100% { transform: rotate(360deg) translate(0px, 0px); }
+        }
+        @keyframes atomVibrate {
+            0%, 100% { transform: scale(1) translate(0px, 0px); }
+            50% { transform: scale(1.01) translate(0.5px, -0.5px); }
+        }
+
+        /* Respiración Sutil de la Cabeza */
+        @keyframes headPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.015); }
+        }
+
+        /* Textos Curvos Dynamic: FCI fluye */
+        @keyframes textFlowFCI {
+            0%, 100% { text-anchor: middle; startOffset: 50%; }
+            50% { text-anchor: middle; startOffset: 55%; }
+        }
+        /* Textos Curvos Dynamic: UTEQ fluye */
+        @keyframes textFlowUTEQ {
+            0%, 100% { text-anchor: middle; startOffset: 50%; }
+            50% { text-anchor: middle; startOffset: 45%; }
+        }
+
+        /* Parpadeo Secuencial de Múltiples Destellos */
+        @keyframes flickerFlicker {
+            0%, 100% { opacity: 0; }
+            10% { opacity: 1; }
+            30% { opacity: 0; }
+            40% { opacity: 1; }
+            60% { opacity: 0; }
+            70% { opacity: 1; }
+            90% { opacity: 0; }
+        }
+
+        /* Halo de Energía de Recepción/Emisión */
+        @keyframes energyHaloPulse {
+            0% { transform: scale(1); opacity: 0; }
+            50% { transform: scale(1.08); opacity: calc(var(--halo-max-opacity) * 0.7); }
+            100% { transform: scale(1.15); opacity: 0; }
+        }
+
+        /* Flujo secuencial de datos por los circuitos */
+        @keyframes circuitFlow {
+            0% { stroke-dashoffset: 100; opacity: 0; }
+            5% { opacity: 1; }
+            50% { stroke-dashoffset: 0; opacity: 1; }
+            95% { opacity: 1; }
+            100% { stroke-dashoffset: -100; opacity: 0; }
+        }
+
+        /* ========================================= */
+        /* VARIABLES DE ESTADO Y CLASES DE CONTROL    */
+        /* ========================================= */
+        
+        :root {
+            /* Velocidades Base (Constante Movimiento Orgánico Planetario Caótico) */
+            --logo-main-speed: 25s;
+            --head-speed: 15s;
+            --gear-speed: 10s;
+            --atom-speed: 5s;
+            --flicker-speed: 4s;
+            --halo-max-opacity: 0;
+            --text-flow-speed: 8s;
+            
+            /* Puntos de Parpadeo Secuencial (Flicker) */
+            --flicker-on-point-1: 10%;
+            --flicker-off-point-1: 30%;
+            --flicker-on-point-2: 40%;
+            --flicker-off-point-2: 60%;
+            --flicker-on-point-3: 70%;
+            --flicker-off-point-3: 90%;
+        }
+
+        /* ESTADO: IDLE (Espera - sutil, hipnótico) */
+        .ai-assistant-container.idle {
+            --logo-main-speed: 35s;
+            --head-speed: 25s;
+            --gear-speed: 20s;
+            --atom-speed: 10s;
+            --flicker-speed: 6s;
+        }
+
+        /* ESTADO: LISTENING (Escuchando/Leyendo - reactivo, pulso de recepción) */
+        .ai-assistant-container.listening {
+            --logo-main-speed: 15s;
+            --head-speed: 10s;
+            --gear-speed: 8s;
+            --atom-speed: 5s;
+            --flicker-speed: 2s;
+            --halo-max-opacity: 0.8;
+            transform: scale(1.02); /* Sutil expansión de todo */
+        }
+        .ai-assistant-container.listening #halo-energia {
+            animation: energyHaloPulse 2.5s ease-out infinite;
+        }
+
+        /* ESTADO: SPEAKING (Hablando/Procesando - EXPLOSIÓN ENERGÉTICA Planetaria Caótica) */
+        .ai-assistant-container.speaking {
+            /* Velocidades Máximas Caóticas (Giro de llanta y colisiones frecuentes) */
+            --logo-main-speed: 5s;
+            --head-speed: 5s;
+            --gear-speed: 3s;
+            --atom-speed: 1s;
+            --flicker-speed: 1s;
+            --halo-max-opacity: 1;
+            transform: scale(1.04); /* Sutil expansión de todo */
+        }
+        .ai-assistant-container.speaking #halo-energia {
+            stroke: #ffcd01; /* Halo Oro para emisión */
+            animation: energyHaloPulse 1s ease-out infinite;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="ai-assistant-container idle" id="aiAssistant">
+        <svg class="uteq-logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            
+            <defs>
+                /* FILTRO DE PARPADEO (Flicker) - Efecto premium */
+                <filter id="glowFlicker" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+
+                /* FILTRO DE ÁTOMO - Brillo cuántico */
+                <filter id="atomGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+                    <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+
+                /* TRAYECTORIAS CURVAS INVISIBLES Y CORRECTAS PARA LOS TEXTOS */
+                /* Path para UTEQ (Arriba, de izquierda a derecha, legible) */
+                <path id="uteqPathAdvanced" d="M -70 0 A 70 70 0 1 1 70 0" fill="none" />
+                /* Path para FCI (Abajo, de izquierda a derecha, legible) */
+                <path id="fciPathAdvanced" d="M -70 10 A 60 60 0 0 0 70 10" fill="none" />
+            </defs>
+            
+            <g id="centro-global" transform="translate(100,100)">
+            <circle id="halo-energia" cx="0" cy="0" r="96" />
+            <circle id="anillo-exterior" cx="0" cy="0" r="95" />
+
+            <text class="text-path">
+                <textPath xlink:href="#fciPathAdvanced" startOffset="50%" text-anchor="middle" style="animation: textFlowFCI var(--text-flow-speed) ease-in-out infinite;">
+                    Ciencias de la Ingeniería
+                </textPath>
+            </text>
+            <text class="text-path-uteq">
+                <textPath xlink:href="#uteqPathAdvanced" startOffset="50%" text-anchor="middle" style="animation: textFlowUTEQ var(--text-flow-speed) ease-in-out infinite;">
+                    UTEQ
+                </textPath>
+            </text>
+
+            <g id="sistema-planetario">
+                <g id="cabeza-central" class="figura-dispersa">
+                    <path id="cabeza-silueta" d="M-30,0 C-30,-30 30,-30 30,0 L10,0 L10,30 C10,50 -10,50 -10,30 L-10,0 Z"/>
+                    
+                    <circle class="destello destello-1" cx="-15" cy="-15" r="3" fill="#ffcd01" style="--flicker-on-point: var(--flicker-on-point-1); --flicker-off-point: var(--flicker-off-point-1);"/>
+                    <circle class="destello destello-2" cx="15" cy="-20" r="3" fill="white" style="--flicker-on-point: var(--flicker-on-point-2); --flicker-off-point: var(--flicker-on-point-2);"/>
+                    <circle class="destello destello-3" cx="10" cy="20" r="3" fill="#007d3c" style="--flicker-on-point: var(--flicker-on-point-3); --flicker-off-point: var(--flicker-off-point-3);"/>
+                    <circle class="destello destello-4" cx="-5" cy="10" r="2.5" fill="white" style="animation-delay: 1s;"/>
+                </g>
+                
+                <g id="engranaje" class="figura-dispersa">
+                    <circle cx="15" cy="0" r="25"/>
+                    <rect x="10" y="-30" width="10" height="60" rx="2"/>
+                    <rect x="10" y="-30" width="10" height="60" rx="2" transform="rotate(60 15 0)"/>
+                    <rect x="10" y="-30" width="10" height="60" rx="2" transform="rotate(120 15 0)"/>
+                    <circle cx="15" cy="0" r="15" fill="white"/>
+                </g>
+                
+                <g id="atomo" filter="url(#atomGlow)" class="figura-dispersa">
+                    <circle cx="15" cy="0" r="10" />
+                    <ellipse cx="15" cy="0" rx="15" ry="5" />
+                    <ellipse cx="15" cy="0" rx="15" ry="5" transform="rotate(60 15 0)"/>
+                    <ellipse cx="15" cy="0" rx="15" ry="5" transform="rotate(120 15 0)"/>
+                </g>
+            </g>
+            </g>
+        </svg>
+    </div>
+
+    <script>
+        const container = document.getElementById('aiAssistant');
+        const states = ['idle', 'listening', 'speaking'];
+        let currentStateIndex = 0;
+
+        function cycleState() {
+            // Eliminamos la clase actual y pasamos a la siguiente
+            container.classList.remove(...states);
+            currentStateIndex = (currentStateIndex + 1) % states.length;
+            container.classList.add(states[currentStateIndex]);
+            console.log("Current state:", states[currentStateIndex]);
+        }
+
+        // Simula el cambio de estado con un clic en todo el cuerpo
+        document.body.addEventListener('click', cycleState);
+    </script>
+</body>
+</html>

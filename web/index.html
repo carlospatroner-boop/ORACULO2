@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Oráculo Ancestral - Wisdom of the Ages</title>
     
+    <!-- Preconnect to external services for faster load -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com">
+    <link rel="preconnect" href="https://server.arcgisonline.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script">
+    <link rel="preload" href="style.css" as="style">
+    
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     
@@ -12,6 +23,9 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Prefetch initial audio -->
+    <link rel="prefetch" href="./audio/inicio.mp3">
 </head>
 <body>
 
@@ -28,9 +42,22 @@
         <!-- BARRA SUPERIOR -->
         <div class="top-bar glass-panel">
             <div class="top-header">
-                <h1>Oráculo <span class="accent">Ancestral</span></h1>
+                <div class="title-with-volume">
+                    <!-- Control de Volumen Superior solicitado ENCIMA del título -->
+                    <div class="volume-control top">
+                         <i class="fas fa-volume-down"></i>
+                         <input type="range" min="0" max="1" step="0.01" value="0.7" id="top-music-volume">
+                         <i class="fas fa-volume-up"></i>
+                    </div>
+                    <h1>Oráculo <span class="accent">Ancestral</span></h1>
+                </div>
                 <div class="header-controls">
-                    <button id="btn-music" class="icon-btn-gold" title="Música de Ambiente"><i class="fas fa-music"></i></button>
+                     <div class="audio-btn-container">
+                        <button id="btn-music" class="icon-btn-gold audio-btn audio-idle" title="Música de Ambiente" aria-live="polite" aria-label="Control de música">
+                            <i class="fas fa-volume-up sr-only" aria-hidden="true"></i>
+                        </button>
+                        <span class="assistant-logo-wrapper"></span>
+                    </div>
                     <button id="btn-info" class="icon-btn-gold"><i class="fas fa-info-circle"></i></button>
                 </div>
             </div>
@@ -64,6 +91,9 @@
             <button id="btn-random-location">
                 <i class="fas fa-dice"></i> Ubicación Aleatoria
             </button>
+            <button id="btn-toggle-map">
+                <i class="fas fa-layer-group"></i> Cambiar Mapa
+            </button>
         </div>
 
         <!-- HOJA DE RESULTADOS (DISEÑO 3 COLUMNAS SOLICITADO) -->
@@ -76,7 +106,20 @@
 
                 <!-- Etiqueta de cultura movida al header para mayor visibilidad -->
                 <div class="identity-tag-main">
-                    <i class="fas fa-crown"></i> CULTURA: <span id="res-nacionalidad">--</span>
+                    <span class="identity-icon" aria-hidden="true">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="22" height="22">
+                            <path d="M20 65 L30 45 L40 65 L50 35 L60 65 L70 45 L80 65 L80 80 L20 80 Z" fill="#fbbf24" stroke="#d97706" stroke-width="2"/>
+                            <circle cx="35" cy="54" r="4" fill="#1f2937"/>
+                            <circle cx="50" cy="43" r="4" fill="#1f2937"/>
+                            <circle cx="65" cy="54" r="4" fill="#1f2937"/>
+                        </svg>
+                    </span>
+                    CULTURA: <span id="res-nacionalidad">--</span>
+                    <div class="volume-control">
+                        <i class="fas fa-music" aria-hidden="true"></i>
+                        <span>MÚSICA</span>
+                        <input type="range" min="0" max="1" step="0.01" value="0.7" id="music-volume">
+                    </div>
                 </div>
 
                 <div class="header-actions">
@@ -90,23 +133,41 @@
                 <!-- COLUMNA IZQUIERDA: Clima y Sabidurías -->
                 <div class="column">
                     <!-- Clima y Astros (Arriba) -->
-                    <div class="result-panel glass-panel">
+                    <div class="result-panel glass-panel weather-redesign">
                         <div class="panel-header">
                             <i class="fas fa-cloud-moon"></i>
                             <h3>CLIMA Y ASTROS</h3>
                         </div>
-                        <div class="weather-card-main">
-                            <div id="res-clima-icon"></div>
-                            <div class="temp-box">
-                                <span id="res-temp">--°C</span>
-                                <small id="res-clima-txt">--</small>
+                        
+                        <div class="weather-context">
+                            <span class="context-label">Temperatura actual en</span>
+                            <b id="res-ciudad" class="context-city">--</b>
+                        </div>
+
+                        <div class="weather-hero">
+                            <div id="res-clima-icon" class="hero-icon"></div>
+                            <div class="hero-data">
+                                <span id="res-temp" class="hero-temp">--°C</span>
+                                <small id="res-clima-txt" class="hero-status">--</small>
                             </div>
                         </div>
-                        <div class="weather-grid-details">
-                            <div class="detail-box"><span>CIUDAD</span><b id="res-ciudad">--</b></div>
-                            <div class="detail-box"><span>PROVINCIA</span><b id="res-provincia">--</b></div>
-                            <div class="detail-box"><span>LUNA</span><div id="res-luna-icon"></div><b id="res-luna">--</b></div>
-                            <div class="detail-box"><span>HUMEDAD</span><b id="res-humedad">--</b></div>
+
+                        <div class="weather-details-grid">
+                            <div class="grid-item">
+                                <span class="item-label">PROVINCIA</span>
+                                <b id="res-provincia" class="item-value">--</b>
+                            </div>
+                            <div class="grid-item">
+                                <span class="item-label">HUMEDAD</span>
+                                <b id="res-humedad" class="item-value">--</b>
+                            </div>
+                            <div class="grid-item full-width">
+                                <span class="item-label">FASCINACIÓN LUNAR</span>
+                                <div class="lunar-display">
+                                    <div id="res-luna-icon" class="lunar-icon"></div>
+                                    <b id="res-luna" class="item-value">--</b>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -115,26 +176,32 @@
                         <div class="panel-header">
                             <i class="fas fa-scroll"></i>
                             <h3>SABIDURÍAS</h3>
-                            <button class="speak-btn" onclick="readSection('sabidurias')" title="Leer Sabidurías"><i class="fas fa-volume-up"></i></button>
+
+                            <div class="audio-btn-container small">
+                                <button class="speak-btn audio-btn audio-idle" onpointerdown="readSection('sabidurias')" title="Leer Sabidurías">
+                                    <i class="fas fa-volume-up sr-only" aria-hidden="true"></i>
+                                </button>
+                                <span class="assistant-logo-wrapper small"></span>
+                            </div>
                         </div>
 
                         <div class="wisdom-accordion scroll-internal">
-                            <button class="saber-btn" onclick="toggleSaber('cont-siembra')">Labores de Tierra</button>
+                            <button class="saber-btn" onpointerdown="toggleSaber('cont-siembra')"><i class="fas fa-seedling"></i> Labores de Tierra <i class="fas fa-chevron-right chevron"></i></button>
                             <div id="cont-siembra" class="saber-content"><p id="card-labores">...</p></div>
                             
-                            <button class="saber-btn" onclick="toggleSaber('cont-rituales')">Rituales y Danzas</button>
+                            <button class="saber-btn" onpointerdown="toggleSaber('cont-rituales')"><i class="fas fa-drum"></i> Rituales y Danzas <i class="fas fa-chevron-right chevron"></i></button>
                             <div id="cont-rituales" class="saber-content"><p id="card-rituales">...</p></div>
                             
-                            <button class="saber-btn" onclick="toggleSaber('cont-vestimenta')">Vestimenta</button>
+                            <button class="saber-btn" onpointerdown="toggleSaber('cont-vestimenta')"><i class="fas fa-tshirt"></i> Vestimenta <i class="fas fa-chevron-right chevron"></i></button>
                             <div id="cont-vestimenta" class="saber-content"><p id="card-vestimenta">...</p></div>
 
-                            <button class="saber-btn" onclick="toggleSaber('cont-gastronomia')">Gastronomía</button>
+                            <button class="saber-btn" onpointerdown="toggleSaber('cont-gastronomia')"><i class="fas fa-utensils"></i> Gastronomía <i class="fas fa-chevron-right chevron"></i></button>
                             <div id="cont-gastronomia" class="saber-content"><p id="card-gastronomia">...</p></div>
 
-                            <button class="saber-btn" onclick="toggleSaber('cont-medicina')">Medicina Ancestral</button>
+                            <button class="saber-btn" onpointerdown="toggleSaber('cont-medicina')"><i class="fas fa-leaf"></i> Medicina Ancestral <i class="fas fa-chevron-right chevron"></i></button>
                             <div id="cont-medicina" class="saber-content"><p id="card-medicina">...</p></div>
 
-                            <button class="saber-btn" onclick="toggleSaber('cont-lexico')">Léxico Sagrado</button>
+                            <button class="saber-btn" onpointerdown="toggleSaber('cont-lexico')"><i class="fas fa-scroll"></i> Léxico Sagrado <i class="fas fa-chevron-right chevron"></i></button>
                             <div id="cont-lexico" class="saber-content"><p id="card-lexico" class="italic-gold">...</p></div>
                         </div>
                     </div>
@@ -153,6 +220,25 @@
                             <button class="nav-arrow next" onclick="cambiarImagenSlider(1)"><i class="fas fa-chevron-right"></i></button>
                         </div>
                         <div class="image-indicator"></div>
+                    </div> <!-- CIERRE GALERÍA -->
+
+                    <!-- NUEVO BLOQUE: ACTIVIDADES CLIMÁTICAS (FUERA DE LA GALERÍA) -->
+                    <div id="panel-actividades-clima" class="result-panel glass-panel actividades-style mt-10">
+                        <div class="panel-header-alt">
+                            <div class="header-left">
+                                <i class="fas fa-thermometer-half"></i>
+                                <h3>ACTIVIDADES CLIMÁTICAS</h3>
+                            </div>
+                            <div class="audio-btn-container small audio-actividades">
+                                <button class="speak-btn audio-btn audio-idle" onpointerdown="readSection('clima')" title="Leer Actividades Climáticas">
+                                    <i class="fas fa-volume-up sr-only" aria-hidden="true"></i>
+                                </button>
+                                <span class="assistant-logo-wrapper small"></span>
+                            </div>
+                        </div>
+                        <div class="actividades-clima-box">
+                            <p id="clima-actividad-texto">Analizando el clima ancestral...</p>
+                        </div>
                     </div>
                 </div>
 
@@ -162,8 +248,14 @@
                     <div class="result-panel glass-panel">
                         <div class="panel-header">
                             <i class="fas fa-book-open"></i>
-                            <h3>RELATO TRADICIONAL</h3>
-                            <button class="speak-btn" onclick="readSection('relato')" title="Leer Relato"><i class="fas fa-volume-up"></i></button>
+                            <h3>RELATO</h3>
+
+                            <div class="audio-btn-container small">
+                                <button class="speak-btn audio-btn audio-idle" onpointerdown="readSection('relato')" title="Leer Relato">
+                                    <i class="fas fa-volume-up sr-only" aria-hidden="true"></i>
+                                </button>
+                                <span class="assistant-logo-wrapper small"></span>
+                            </div>
                         </div>
                         <div class="myth-box-full scroll-internal">
                             <p id="res-myth-text">"Relato del ancestro..."</p>
@@ -174,8 +266,14 @@
                     <div class="result-panel glass-panel">
                         <div class="panel-header">
                             <i class="fas fa-monument"></i>
-                            <h3>HISTORIA DEL PUEBLO</h3>
-                            <button class="speak-btn" onclick="readSection('historia')" title="Leer Historia"><i class="fas fa-volume-up"></i></button>
+                            <h3>HISTORIA</h3>
+
+                            <div class="audio-btn-container small">
+                                <button class="speak-btn audio-btn audio-idle" onpointerdown="readSection('historia')" title="Leer Historia">
+                                    <i class="fas fa-volume-up sr-only" aria-hidden="true"></i>
+                                </button>
+                                <span class="assistant-logo-wrapper small"></span>
+                            </div>
                         </div>
                         <div class="history-box scroll-internal">
                             <p id="card-historia">...</p>
@@ -223,6 +321,7 @@
 
     <!-- SCRIPTS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="maps-adapter.js"></script>
     <script src="data.js"></script>
     <script src="provincias.js"></script>
     <script src="visuals.js"></script>

@@ -17,10 +17,10 @@ const MAPPING_PROVINCIAS = {
     "Napo": { pueblo: "Kichwa Amazónico", asentamientos: "Tena, Archidona, Ahuano" },
     "Orellana": { pueblo: "Waorani", asentamientos: "Coca, Loreto, Aguarico" },
     "Pastaza": { pueblo: "Achuar", asentamientos: "Puyo, Mera, Shell" },
-    "Pichincha": { pueblo: "Montubio", asentamientos: "Quito, Machachi, Sangolquí" },
+    "Pichincha": { pueblo: "Kichwa", asentamientos: "Quito, Machachi, Sangolquí, Cayambe" },
     "Santa Elena": { pueblo: "Montubio", asentamientos: "Santa Elena, Salinas, Olón" },
     "Santo Domingo de los Tsáchilas": { pueblo: "Tsáchila", asentamientos: "Chigüilpe, Congoma, El Poste" },
-    "Sucumbíos": { pueblo: "Siona-Secoya", asentamientos: "Lago Agrio, Shushufindi" },
-    "Tungurahua": { pueblo: "Kichwa Salasaka", asentamientos: "Ambato, Salasaka, Baños" },
+    "Sucumbíos": { pueblo: "Kichwa", asentamientos: "Lago Agrio, Shushufindi" },
+    "Tungurahua": { pueblo: "Kichwa", asentamientos: "Ambato, Salasaka, Baños" },
     "Zamora Chinchipe": { pueblo: "Shuar", asentamientos: "Zamora, Yantzaza, Chinchipe" }
 };

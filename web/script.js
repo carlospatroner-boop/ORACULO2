@@ -5,6 +5,74 @@ let imagenesActuales = [];
 let indiceImagenActual = 0;
 let isMusicEnabled = false; // Manual por defecto
 let audioActual = null;
+let musicVolume = 0.7; 
+
+// PERSISTENCIA EN LOCALSTORAGE (Arquitectura aislada)
+const MAX_HISTORIAL_PUNTOS = 10;
+const storageRepo = {
+    getPuntos: () => JSON.parse(localStorage.getItem('hist_pts') || '[]'),
+    setPuntos: (p) => localStorage.setItem('hist_pts', JSON.stringify(p.slice(-MAX_HISTORIAL_PUNTOS))),
+    getImg: (nac) => JSON.parse(localStorage.getItem(`hist_img_${nac}`) || '[]'),
+    setImg: (nac, imgs) => localStorage.setItem(`hist_img_${nac}`, JSON.stringify(imgs))
+};
+
+// Sistema de Memoria para Imágenes (Evitar repeticiones inmediatas)
+let historialImagenesCultura = {}; 
+let cacheGaleriasCultura = {}; // Cache para almacenamiento dinámico
+
+// Helper para aleatoriedad inteligente (Pedido por el usuario)
+function getRandomItems(array, count) {
+    return [...array]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, count || array.length);
+}
+
+// Pool de variantes históricas locales para mayor aleatoriedad
+const HISTORIA_POOL = {
+    "Kichwa": [
+        "Las comunidades de la sierra mantienen el Inti Raymi como eje de su calendario cósmico y agrícola.",
+        "El quichua o kichwa llegó a los Andes antes que el Inca, como lengua de comercio y alianza.",
+        "Los centros ceremoniales como Ingapirca o Cojitambo son testimonios de la avanzada arquitectura andina."
+    ],
+    "Shuar": [
+        "El pueblo Shuar es conocido por su resistencia histórica e indomable ante la colonización.",
+        "La organización social Shuar se basa en la familia extendida y el respeto profundo a la selva.",
+        "Sus tradiciones guerreras y rituales de Arutam buscan la conexión con la fuerza vital de las cascadas."
+    ],
+    "Montubio": [
+        "El pueblo montubio nace del mestizaje en las llanuras costeras, forjando su identidad en el cacao.",
+        "El sombrero de paja toquilla y el machete son símbolos de la labor constructora de la costa ecuatoriana.",
+        "La cultura montubio fue clave en la gesta revolucionaria de Alfaro y la exportación de cacao fino de aroma."
+    ],
+    "Afroecuatoriano": [
+        "El pueblo de Esmeraldas se formó tras el naufragio de barcos esclavistas, creando un territorio de libertad propia.",
+        "La marimba esmeraldeña es patrimonio cultural que guarda los ritmos y saberes del África ancestral.",
+        "Los valles del Chota y de Esmeraldas conservan saberes medicinales y ritos rítmicos únicos en el mundo."
+    ],
+    "Tsáchila": [
+        "Los Tsáchilas, o 'Gente Verdadera', se distinguen por el uso del achiote como símbolo de vida y salud.",
+        "Sus siete centros ceremoniales en Santo Domingo guardan la medicina botánica más rica de la región.",
+        "El idioma Tsafiki es una lengua milenaria que conecta la selva baja con los ritos de sanación."
+    ],
+    "Waorani": [
+        "Los Waorani han sido los guardianes ancestrales de la biósfera del Yasuní durante siglos.",
+        "Su maestría en el uso de la cerbatana y el conocimiento de las plantas venenosas es legendaria.",
+        "Para el Waorani, el territorio no es propiedad: es la vida misma que se hereda de los espíritus del bosque."
+    ],
+    "Galapagueño": [
+        "La cultura galapagueña es una amalgama de pioneros que llegaron de todo el mundo a las islas encantadas.",
+        "La vida en las islas se rige por la simbiosis sagrada con especies únicas en el planeta.",
+        "El respeto al océano y la pesca artesanal responsable son los pilares de la identidad insular."
+    ]
+};
+let currentReadingType = null;
+let speechState = 'idle'; // 'idle', 'playing', 'paused'
+let isVolumeAdjusting = false;
+
+// Seguimiento persistente por sección
+let sectionStates = { relato: 'idle', historia: 'idle', sabidurias: 'idle' };
+let sectionPositions = { relato: 0, historia: 0, sabidurias: 0 };
+let sectionTexts = { relato: "", historia: "", sabidurias: "" };
 
 const LEXICO_ANCESTRAL = {
     "Kichwa": { palabra: "Alli Shamushca", significado: "Bienvenido (Que vengas con bien)" },
@@ -39,9 +107,16 @@ const ICONOS_LUNARES = {
 document.addEventListener('DOMContentLoaded', () => {
     inicializarMapa();
 
+    // PRECARGA DE VOCES (Elimina latencia en el primer clic de lectura)
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+
     // Eventos de configuración
     document.getElementById('nacionalidad').addEventListener('change', (e) => {
-        actualizarDescripcionCosmovision(e.target.value);
+        // Al cambiar manualmente el combo, SÍ queremos que se actualice la descripción y música (conAudio=true)
+        actualizarDescripcionCosmovision(e.target.value, true);
     });
 
     // Activar música al interactuar con la página por primera vez
@@ -77,23 +152,70 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-close-sheet').addEventListener('click', cerrarResultados);
     document.getElementById('btn-back-map').addEventListener('click', cerrarResultados);
     document.getElementById('btn-music').addEventListener('click', toggleMusic);
+    document.getElementById('btn-toggle-map').addEventListener('click', () => {
+        MapProvider.toggle();
+    });
+
+    // Escuchar cambios de proveedor para actualizar la referencia global 'map'
+    window.addEventListener('mapProviderChanged', (e) => {
+        map = e.detail.adapter.map;
+        // Re-adjuntar eventos al nuevo mapa
+        map.on('click', (ev) => seleccionarLugarPorCoordenadas(ev.latlng.lat, ev.latlng.lng));
+        
+        // Re-crear marcador si existía
+        const btn = document.getElementById('btn-consultar');
+        if (btn && btn.dataset.lat) {
+            seleccionarLugarPorCoordenadas(parseFloat(btn.dataset.lat), parseFloat(btn.dataset.lon));
+        }
+        
+        // Los marcadores de clima han sido deshabilitados a petición del usuario
+        // inicializarMapaClimatico();
+    });
+
+    // Inicializar botones de audio (idle + logo)
+    initializeAudioButtons();
 
     // Inicializar estado visual del botón Música
-    const musicBtn = document.getElementById('btn-music');
     if (isMusicEnabled) {
-        musicBtn.classList.add('active');
-        musicBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        setAudioButtonMode(document.getElementById('btn-music'), 'listening');
     } else {
-        musicBtn.classList.remove('active');
-        musicBtn.innerHTML = '<i class="fas fa-music"></i>';
+        setAudioButtonMode(null, 'idle');
     }
 
-    // Inicializar clima en el mapa
-    inicializarMapaClimatico();
+    actualizarEstadoAnimacionAudio();
+
+    // Sincronización de Volumen (Dos sliders para misma música)
+    const musicSlider = document.getElementById('music-volume');
+    const topMusicSlider = document.getElementById('top-music-volume');
+    
+    const updateMusicVol = (val) => {
+        musicVolume = parseFloat(val);
+        if (audioActual) audioActual.volume = musicVolume;
+        // Sincronizar el otro slider si existe
+        if (musicSlider) musicSlider.value = val;
+        if (topMusicSlider) topMusicSlider.value = val;
+    };
+
+    if (musicSlider) {
+        musicSlider.addEventListener('input', (e) => updateMusicVol(e.target.value));
+    }
+    if (topMusicSlider) {
+        topMusicSlider.addEventListener('input', (e) => updateMusicVol(e.target.value));
+    }
+
+    // Fijar ícono de cultura con el mismo personaje de los markers
+    const identityIcon = document.querySelector('.identity-tag-main .identity-icon');
+    if (identityIcon && typeof getPegmanSVG === 'function') {
+        identityIcon.innerHTML = getPegmanSVG('sierra');
+        identityIcon.style.width = '54px';
+        identityIcon.style.height = '54px';
+        identityIcon.classList.add('moving');
+    }
 
     // Inicializar Ciclo Solar
     actualizarCicloSolar();
     setInterval(actualizarCicloSolar, 60000); // Revisar cada minuto
+    actualizarEstadoAnimacionAudio();
 });
 
 // Reproducir música y lectura por defecto una vez cargado todo
@@ -109,7 +231,8 @@ window.addEventListener('load', () => {
     const btn = document.getElementById('btn-music');
     if (btn) {
         btn.classList.add('active');
-        btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        setAudioButtonMode(btn, 'listening');
+        initializeAudioButtons();
     }
     
     // Disparar la actualizacion inicial (esto activará la lectura y la musica al primer clic si el browser bloquea autoplay)
@@ -158,6 +281,316 @@ function actualizarCicloSolar() {
     }
 }
 
+function getAssistantLogoHTML() {
+    return `
+        <div class="ai-assistant-container idle" id="aiAssistant">
+            <svg class="uteq-logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="glowFlicker" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                    <filter id="pauseGlow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="5" result="blur"/>
+                        <feMerge>
+                            <feMergeNode in="blur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                    <filter id="atomGlow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                    <path id="uteqPathAdvanced" d="M 32 100 A 68 68 0 1 1 168 100" fill="none" />
+                    <path id="fciPathAdvanced" d="M 25 105 A 75 75 0 0 0 175 105" fill="none" />
+                </defs>
+                <circle id="halo-energia" cx="100" cy="100" r="85"></circle>
+                <circle id="anillo-exterior" cx="100" cy="100" r="95"></circle>
+                <text class="text-path">
+                    <textPath xlink:href="#fciPathAdvanced" startOffset="50%" text-anchor="middle" style="animation: textFlowFCI var(--text-flow-speed) ease-in-out infinite;">
+                        Ciencias de la Ingeniería
+                    </textPath>
+                </text>
+                <text class="text-path-uteq">
+                    <textPath xlink:href="#uteqPathAdvanced" startOffset="50%" text-anchor="middle" style="animation: textFlowUTEQ var(--text-flow-speed) ease-in-out infinite;">
+                        UTEQ
+                    </textPath>
+                </text>
+                <g id="sistema-planetario" style="transform-origin: 100px 100px; transform: scale(0.95);">
+                    <g id="cabeza-central" class="figura-dispersa">
+                        <path id="cabeza-silueta" d="M70,100 C70,70 130,70 130,100 L110,100 L110,130 C110,150 90,150 90,130 L90,100 Z"/>
+                        <circle class="destello destello-1" cx="85" cy="85" r="3" fill="#ffcd01" style="--flicker-on-point: var(--flicker-on-point-1); --flicker-off-point: var(--flicker-off-point-1);"/>
+                        <circle class="destello destello-2" cx="100" cy="80" r="3" fill="white" style="--flicker-on-point: var(--flicker-on-point-2); --flicker-off-point: var(--flicker-off-point-2);"/>
+                        <circle class="destello destello-3" cx="100" cy="120" r="3" fill="#007d3c" style="--flicker-on-point: var(--flicker-on-point-3); --flicker-off-point: var(--flicker-off-point-3);"/>
+                        <circle class="destello destello-4" cx="95" cy="110" r="2.5" fill="white" style="animation-delay: 1s;"/>
+                    </g>
+                    <g id="engranaje" class="figura-dispersa">
+                        <circle cx="100" cy="100" r="25"/>
+                        <rect x="95" y="70" width="10" height="60" rx="2"/>
+                        <rect x="95" y="70" width="10" height="60" rx="2" transform="rotate(60 100 100)"/>
+                        <rect x="95" y="70" width="10" height="60" rx="2" transform="rotate(120 100 100)"/>
+                        <circle cx="100" cy="100" r="15" fill="white"/>
+                    </g>
+                    <g id="atomo" filter="url(#atomGlow)" class="figura-dispersa">
+                        <circle cx="100" cy="100" r="10" />
+                        <ellipse cx="100" cy="100" rx="15" ry="5" />
+                        <ellipse cx="100" cy="100" rx="15" ry="5" transform="rotate(60 100 100)"/>
+                        <ellipse cx="100" cy="100" rx="15" ry="5" transform="rotate(120 100 100)"/>
+                    </g>
+                </g>
+                <g id="pause-icon" style="display: none;" filter="url(#pauseGlow)">
+                    <rect x="82" y="75" width="12" height="50" rx="3" fill="white" />
+                    <rect x="106" y="75" width="12" height="50" rx="3" fill="white" />
+                </g>
+            </svg>
+        </div>
+    `;
+}
+
+function getAssistantLogoStyles() {
+    return `
+        .ai-assistant-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            border-radius: 50%;
+            background: transparent;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            transform-origin: center;
+            --logo-main-speed: 40s;
+            --head-speed: 30s;
+            --gear-speed: 25s;
+            --atom-speed: 15s;
+            --flicker-speed: 10s;
+            --text-flow-speed: 20s;
+            animation: logoMainTurnFlat var(--logo-main-speed) linear infinite;
+        }
+        .uteq-logo-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            position: relative;
+            box-sizing: border-box;
+        }
+        #anillo-exterior {
+            stroke: #ffcd01;
+            stroke-width: 2.5;
+            animation: greenPulse 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        .text-path {
+            fill: white;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            text-transform: uppercase;
+        }
+        .text-path-uteq {
+            fill: white;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -1px;
+        }
+        .figura-dispersa {
+            transform-origin: 100px 100px;
+            filter: url(#glowFlicker);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #cabeza-central {
+            transform-origin: 100px 100px;
+            fill: #6d6e71;
+            animation: headScatter var(--head-speed) ease-in-out infinite, headPulse 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        #engranaje {
+            transform-origin: 100px 100px;
+            fill: #ffcd01;
+            stroke: white;
+            stroke-width: 1;
+            animation: gearScatter var(--gear-speed) ease-in-out infinite;
+        }
+        #atomo {
+            transform-origin: 100px 100px;
+            stroke: #007d3c;
+            stroke-width: 1.5;
+            fill: none;
+            animation: atomOrbital var(--atom-speed) linear infinite, atomVibrate 0.3s linear infinite;
+        }
+        .destello {
+            opacity: 0;
+            animation: flickerFlicker var(--flicker-speed) linear infinite;
+        }
+        #halo-energia {
+            transform-origin: center;
+            fill: none;
+            stroke: #007d3c;
+            stroke-width: 6;
+            opacity: 0;
+            filter: url(#glowFlicker);
+        }
+        @keyframes logoMainTurnFlat { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes greenPulse { 0%, 100% { fill: #007d3c; stroke: #ffcd01; } 50% { fill: #00bf5c; stroke: #ffdf01; } }
+        @keyframes headScatter { 0%, 100% { transform: translate(0px, 0px) rotate(0deg); } 30% { transform: translate(8px, -5px) rotate(10deg); } 70% { transform: translate(-6px, 6px) rotate(-10deg); } }
+        @keyframes gearScatter { 0%, 100% { transform: translate(0px, 0px) rotate(0deg); } 25% { transform: translate(-10px, 8px) rotate(-20deg); } 50% { transform: translate(8px, -6px) rotate(25deg); } 75% { transform: translate(-8px, -8px) rotate(-10deg); } }
+        @keyframes atomOrbital { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.15); } 100% { transform: rotate(360deg) scale(1); } }
+        @keyframes atomVibrate { 0%, 100% { transform: translate(0px, 0px); } 50% { transform: translate(1px, -1px); } }
+        @keyframes headPulse { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.05); filter: brightness(1.3); } }
+        @keyframes textFlowFCI { 0%, 100% { text-anchor: middle; startOffset: 50%; } 50% { text-anchor: middle; startOffset: 55%; } }
+        @keyframes textFlowUTEQ { 0%, 100% { text-anchor: middle; startOffset: 50%; } 50% { text-anchor: middle; startOffset: 45%; } }
+        @keyframes flickerFlicker { 0%, 100% { opacity: 0; } 10% { opacity: 1; } 30% { opacity: 0; } 40% { opacity: 1; } 60% { opacity: 0; } 70% { opacity: 1; } 90% { opacity: 0; } }
+        @keyframes energyHaloPulse { 
+            0% { transform: scale(1); opacity: 0; filter: blur(0px); } 
+            50% { transform: scale(1.12); opacity: calc(var(--halo-max-opacity) * 0.9); filter: blur(2px); } 
+            100% { transform: scale(1.13); opacity: 0; filter: blur(4px); } 
+        }
+        @keyframes auraBreath {
+            0%, 100% { filter: brightness(1) contrast(1); }
+            50% { filter: brightness(1.4) contrast(1.2); }
+        }
+        :root {
+            --logo-main-speed: 25s;
+            --head-speed: 15s;
+            --gear-speed: 10s;
+            --atom-speed: 5s;
+            --flicker-speed: 4s;
+            --halo-max-opacity: 0;
+            --text-flow-speed: 8s;
+            --flicker-on-point-1: 10%;
+            --flicker-off-point-1: 30%;
+            --flicker-on-point-2: 40%;
+            --flicker-off-point-2: 60%;
+            --flicker-on-point-3: 70%;
+            --flicker-off-point-3: 90%;
+        }
+        .ai-assistant-container.idle { --logo-main-speed: 35s; --head-speed: 25s; --gear-speed: 20s; --atom-speed: 10s; --flicker-speed: 6s; }
+        .ai-assistant-container.listening { --logo-main-speed: 15s; --head-speed: 10s; --gear-speed: 8s; --atom-speed: 5s; --flicker-speed: 2s; --halo-max-opacity: 0.8; }
+        .ai-assistant-container.listening #halo-energia { animation: energyHaloPulse 2.5s ease-out infinite; }
+        .ai-assistant-container.speaking { --logo-main-speed: 3s; --head-speed: 4s; --gear-speed: 2s; --atom-speed: 0.8s; --flicker-speed: 0.5s; --halo-max-opacity: 1; animation: logoMainTurnFlat var(--logo-main-speed) linear infinite, auraBreath 2s ease-in-out infinite; }
+        .ai-assistant-container.speaking #halo-energia { stroke: #ffcd01; animation: energyHaloPulse 0.8s ease-out infinite; }
+        
+        /* ESTADO DE PAUSA (Inyectado Quirúrgicamente) */
+        .ai-assistant-container.paused #pause-icon { display: block; animation: pulsePauseGlow 1.5s ease-in-out infinite; }
+        .ai-assistant-container.paused #sistema-planetario { opacity: 0.15; filter: grayscale(1) blur(1px); }
+        @keyframes pulsePauseGlow {
+            0%, 100% { filter: drop-shadow(0 0 5px white); opacity: 0.7; transform: scale(1); }
+            50% { filter: drop-shadow(0 0 25px #ffcd01); opacity: 1; transform: scale(1.1); }
+        }
+    `;
+}
+
+function initializeAudioButtons() {
+    document.querySelectorAll('.audio-btn').forEach((btn) => {
+        const small = btn.classList.contains('small');
+        injectAssistantLogo(btn, small);
+        btn.classList.remove('listening', 'speaking', 'idle');
+        btn.classList.add('idle');
+    });
+}
+
+function injectAssistantLogo(button, small = false) {
+    if (!button) return;
+    const container = button.closest('.audio-btn-container');
+    if (!container) return;
+    
+    let wrapper = container.querySelector('.assistant-logo-wrapper');
+    if (!wrapper) {
+        wrapper = document.createElement('span');
+        wrapper.className = 'assistant-logo-wrapper' + (small ? ' small' : '');
+        container.appendChild(wrapper); // Appends wrapper as a sibling to the button within the container
+    } else {
+        wrapper.classList.toggle('small', small);
+    }
+
+    if (!wrapper.shadowRoot) {
+        const shadow = wrapper.attachShadow({ mode: 'open' });
+        const style = document.createElement('style');
+        style.textContent = getAssistantLogoStyles();
+        shadow.appendChild(style);
+        shadow.innerHTML += getAssistantLogoHTML();
+    }
+}
+
+function setAudioButtonMode(targetButton, mode) {
+    document.querySelectorAll('.audio-btn-container').forEach((container) => {
+        container.classList.remove('idle', 'listening', 'speaking', 'paused');
+        container.classList.add('idle');
+        const wrapper = container.querySelector('.assistant-logo-wrapper');
+        if (wrapper && wrapper.shadowRoot) {
+            const innerContainer = wrapper.shadowRoot.querySelector('.ai-assistant-container');
+            if (innerContainer) {
+                innerContainer.classList.remove('idle', 'listening', 'speaking', 'paused');
+                innerContainer.classList.add('idle');
+            }
+        }
+    });
+
+    if (!targetButton || !mode) return;
+
+    const targetContainer = targetButton.closest('.audio-btn-container');
+    if (!targetContainer) return;
+
+    targetContainer.classList.remove('idle', 'listening', 'speaking', 'paused');
+    targetContainer.classList.add(mode);
+    
+    const wrapper = targetContainer.querySelector('.assistant-logo-wrapper');
+    if (wrapper && wrapper.shadowRoot) {
+        const innerContainer = wrapper.shadowRoot.querySelector('.ai-assistant-container');
+        if (innerContainer) {
+            innerContainer.classList.remove('idle', 'listening', 'speaking', 'paused');
+            innerContainer.classList.add(mode);
+        }
+    }
+}
+
+function actualizarEstadoAnimacionAudio() {
+    const musicBtn = document.getElementById('btn-music');
+    
+    // 1. LIMPIEZA TOTAL DE TODOS LOS CONTENEDORES
+    document.querySelectorAll('.audio-btn-container').forEach(c => {
+        c.classList.remove('speaking', 'listening', 'paused');
+    });
+
+    // 2. APLICAR ESTADOS PERSISTENTES A LOS BOTONES DE NARRACIÓN
+    Object.keys(sectionStates).forEach(type => {
+        const btn = document.querySelector(`button[onclick*="readSection('${type}')"]`) || document.querySelector(`button[onpointerdown*="readSection('${type}')"]`);
+        if (btn) {
+            const container = btn.closest('.audio-btn-container');
+            if (container) {
+                if (sectionStates[type] === 'playing') {
+                    container.classList.add('speaking');
+                    setAudioButtonMode(btn, 'speaking');
+                } else if (sectionStates[type] === 'paused') {
+                    container.classList.add('paused');
+                    setAudioButtonMode(btn, 'paused');
+                }
+            }
+        }
+    });
+
+    // 3. MÚSICA DE AMBIENTE (Si no hay ninguna voz en 'playing')
+    const hasAnyVoicePlaying = Object.values(sectionStates).includes('playing');
+    const isMusicActive = isMusicEnabled && audioActual && !audioActual.paused;
+    
+    if (!hasAnyVoicePlaying && isMusicActive && musicBtn) {
+        const container = musicBtn.closest('.audio-btn-container');
+        if (container) {
+            container.classList.add('listening');
+            setAudioButtonMode(musicBtn, 'listening');
+        }
+    } else if (!hasAnyVoicePlaying && !isMusicActive) {
+        setAudioButtonMode(null, 'idle');
+    }
+}
+
 function generarEstrellas(box, count) {
     if (box.children.length > 0) return; // Ya generado
     for (let i = 0; i < count; i++) {
@@ -181,23 +614,19 @@ function generarEstrellas(box, count) {
 
 function inicializarMapa() {
     const bounds = L.latLngBounds(L.latLng(-6.0, -92.0), L.latLng(2.5, -75.0));
-    map = L.map('map-background', {
-        zoomControl: false,
+    
+    // Usamos el MapProvider para inicializar el adaptador por defecto
+    const adapter = MapProvider.init('default', {
         maxBounds: bounds,
-        maxBoundsViscosity: 1.0,
         minZoom: 6
-    }).setView([-1.8312, -78.1834], 6);
+    });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    map = adapter.map;
 
     map.on('click', (e) => seleccionarLugarPorCoordenadas(e.latlng.lat, e.latlng.lng));
 
-    // Filtro para que el mapa se vea más "místico"
-    document.querySelector('.leaflet-tile-pane').style.filter = 'grayscale(0.5) contrast(1.2) brightness(0.8)';
+    // El control de zoom ya lo maneja el adaptador
+    // document.querySelector('.leaflet-tile-pane').style.filter = 'grayscale(0.5) contrast(1.2) brightness(0.8)';
 }
 
 async function inicializarMapaClimatico() {
@@ -257,9 +686,9 @@ async function seleccionarLugarPorCoordenadas(lat, lon, abrirAuto = false) {
     const defaultSvgIcon = typeof getPegmanSVG === 'function' ? getPegmanSVG('default') : '';
     const personIcon = L.divIcon({
         className: 'person-marker',
-        html: `<div class="person-marker-content">${defaultSvgIcon}</div>`,
-        iconSize: [60, 80],
-        iconAnchor: [30, 75]
+        html: `<div class="person-marker-content">${defaultSvgIcon}</div><div class="marker-label"></div>`,
+        iconSize: [80, 100],
+        iconAnchor: [40, 95]
     });
 
     marker = L.marker([lat, lon], { icon: personIcon, draggable: true }).addTo(map);
@@ -274,12 +703,16 @@ async function seleccionarLugarPorCoordenadas(lat, lon, abrirAuto = false) {
     btn.disabled = false;
 
     try {
-        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=es`);
+        // Usar Nominatim (OpenStreetMap) en lugar de BigDataCloud (que está fallando)
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=es`);
         const data = await response.json();
 
-        if (data) {
+        if (data && data.address) {
+            const addr = data.address;
+            
             // Validar que el punto seleccionado esté dentro de Ecuador
-            if (data.countryCode && data.countryCode !== "EC") {
+            // Nominatim suele usar "ec" en minúsculas para country_code
+            if (addr.country_code && addr.country_code.toUpperCase() !== "EC") {
                 document.getElementById('selected-location').textContent = "Selección fuera de Ecuador";
                 btn.disabled = true;
                 if (marker) map.removeLayer(marker);
@@ -287,19 +720,36 @@ async function seleccionarLugarPorCoordenadas(lat, lon, abrirAuto = false) {
                 return;
             }
 
-            const ciudad = data.city || data.locality || "Ubicación rural";
-            const provincia = (data.principalSubdivision || "").replace("Provincia de ", "").trim();
+            // Detectar ciudad (más robusto: city, town, village, hamlet, etc.)
+            const ciudad = addr.city || addr.town || addr.village || addr.hamlet || addr.municipality || addr.county || "Ubicación rural";
+            
+            // Detectar provincia (state)
+            const provincia = (addr.state || "").replace("Provincia de ", "").trim();
 
             document.getElementById('selected-location').textContent = ciudad;
             btn.dataset.ciudad = ciudad;
             btn.dataset.provincia = provincia;
-            marker.bindPopup(`<b>${ciudad}</b>`).openPopup();
+
+            // Actualizar el label del marker (texto sobre la cabeza del muñeco)
+            const markerElement = marker.getElement();
+            if (markerElement) {
+                const labelDiv = markerElement.querySelector('.marker-label');
+                if (labelDiv) labelDiv.textContent = ciudad;
+            }
             
             // Vestir al muñequito según la región
             actualizarVestimenta(provincia, marker);
 
-            // Esperar al clic de "Consultar Oráculo" para mostrar el clima animado en el fondo
-            
+            // AUTO-SELECCIONAR LA NACIONALIDAD SEGÚN LA PROVINCIA DETECTADA (PEDIDO POR EL USUARIO)
+            const mapping = MAPPING_PROVINCIAS[provincia] || { pueblo: "Kichwa", asentamientos: "Ecuador" };
+            const nacDetectada = normalizarNacionalidad(mapping.pueblo);
+            const selectorNac = document.getElementById('nacionalidad');
+            if (selectorNac) {
+                selectorNac.value = nacDetectada;
+                // Al mover el mapa solo actualizamos el visual si abrirAuto es false
+                // Así cumplimos: "mientras se toca cosas en el mapa no debe cambiar la musica"
+                actualizarDescripcionCosmovision(nacDetectada, abrirAuto);
+            }
 
             if (abrirAuto) {
                 abrirOraculo(lat, lon, ciudad, provincia);
@@ -315,6 +765,13 @@ async function seleccionarLugarPorCoordenadas(lat, lon, abrirAuto = false) {
 async function abrirOraculo(lat, lon, ciudad, provincia) {
     const loadingDiv = document.getElementById('loading');
     let nacionalidadManual = document.getElementById('nacionalidad').value;
+
+    // RESETEAR ESTADOS DE LECTURA PARA ESTA NUEVA SESIÓN
+    sectionStates = { relato: 'idle', historia: 'idle', sabidurias: 'idle', clima: 'idle' };
+    sectionPositions = { relato: 0, historia: 0, sabidurias: 0, clima: 0 };
+    sectionTexts = { relato: "", historia: "", sabidurias: "", clima: "" };
+    detenerLecturaVoz();
+
 
     // 1. Detección de cultura por provincia (Fallback)
     const mapping = MAPPING_PROVINCIAS[provincia] || { pueblo: "Montubio", asentamientos: "Territorio Ecuatoriano" };
@@ -482,15 +939,18 @@ function poblarInterfaz(clima, luna, rec, nac, hist, gallery, territories, ciuda
         const btn = document.getElementById('btn-music');
         if(btn) {
             btn.classList.add('active');
-            btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            setAudioButtonMode(btn, 'listening');
+            initializeAudioButtons();
         }
     }
     reproducirMusicaNacionalidad(nac);
     
-    // Hablar el relato tradicional automáticamente
-    setTimeout(() => {
-        readSection('relato');
-    }, 1000); // Pequeño retraso para que cargue la UI
+    // Hablar el relato tradicional automáticamente (ELIMINADO POR PETICIÓN DE USUARIO)
+    // setTimeout(() => {
+    //     readSection('relato');
+    // }, 1000); 
+
+    actualizarSeccionActividadesClimaticas(clima.temp, nac);
 
     // Efectos de Interfaz
     document.getElementById('results-sheet').classList.add('active');
@@ -506,17 +966,36 @@ function poblarInterfaz(clima, luna, rec, nac, hist, gallery, territories, ciuda
 
 function seleccionarUbicacionAleatoria() {
     const PUNTOS = [
-        { lat: -0.18, lon: -78.46 }, // Quito
-        { lat: -2.18, lon: -79.88 }, // Guayaquil
-        { lat: -2.90, lon: -79.00 }, // Cuenca
-        { lat: -0.99, lon: -77.81 }, // Tena
-        { lat: 0.96, lon: -79.65 },  // Esmeraldas
-        { lat: -1.05, lon: -80.45 }, // Portoviejo
-        { lat: -0.96, lon: -80.71 }  // Manta
+        { id: 1, lat: -0.18, lon: -78.46, nac: "Kichwa" }, { id: 2, lat: -2.90, lon: -79.00, nac: "Kichwa" },
+        { id: 3, lat: -0.99, lon: -77.81, nac: "Kichwa" }, { id: 4, lat: 0.35, lon: -78.12, nac: "Kichwa" },
+        { id: 5, lat: -1.25, lon: -78.62, nac: "Kichwa" }, { id: 6, lat: -2.18, lon: -79.88, nac: "Montubio" },
+        { id: 7, lat: -1.05, lon: -80.45, nac: "Montubio" }, { id: 8, lat: -1.80, lon: -79.53, nac: "Montubio" },
+        { id: 9, lat: -0.96, lon: -80.71, nac: "Montubio" }, { id: 10, lat: 0.96, lon: -79.65, nac: "Afroecuatoriano" },
+        { id: 11, lat: 1.05, lon: -78.85, nac: "Afroecuatoriano" }, { id: 12, lat: 0.40, lon: -78.10, nac: "Afroecuatoriano" },
+        { id: 13, lat: -0.21, lon: -79.16, nac: "Tsáchila" }, { id: 14, lat: -0.25, lon: -79.20, nac: "Tsáchila" },
+        { id: 15, lat: -0.15, lon: -79.10, nac: "Tsáchila" }, { id: 16, lat: -0.62, lon: -76.88, nac: "Waorani" },
+        { id: 17, lat: -0.95, lon: -76.05, nac: "Waorani" }, { id: 18, lat: -1.48, lon: -77.99, nac: "Shuar" },
+        { id: 19, lat: -2.31, lon: -78.12, nac: "Shuar" }, { id: 20, lat: -3.42, lon: -78.60, nac: "Shuar" },
+        { id: 21, lat: -0.74, lon: -90.31, nac: "Galapagueño" }, { id: 22, lat: -0.90, lon: -89.60, nac: "Galapagueño" },
+        { id: 23, lat: -0.45, lon: -90.30, nac: "Galapagueño" }
     ];
-    const point = PUNTOS[Math.floor(Math.random() * PUNTOS.length)];
-    map.flyTo([point.lat, point.lon], 12);
-    seleccionarLugarPorCoordenadas(point.lat, point.lon, true);
+
+    const nacFiltro = document.getElementById('nacionalidad').value;
+    const historial = storageRepo.getPuntos();
+    
+    let pool = nacFiltro ? PUNTOS.filter(p => p.nac === nacFiltro) : PUNTOS;
+    
+    // Evitar historial reciente
+    let candidatos = pool.filter(p => !historial.includes(p.id));
+    if (candidatos.length === 0) candidatos = pool;
+
+    const chosen = candidatos[Math.floor(Math.random() * candidatos.length)];
+    
+    historial.push(chosen.id);
+    storageRepo.setPuntos(historial);
+
+    map.flyTo([chosen.lat, chosen.lon], 12);
+    seleccionarLugarPorCoordenadas(chosen.lat, chosen.lon, true); 
 }
 
 function cerrarResultados() {
@@ -527,6 +1006,10 @@ function cerrarResultados() {
     detenerLecturaVoz();
     limpiarEfectosClimaticos();
     
+    // Resetear estados internos
+    speechState = 'idle';
+    currentReadingType = null;
+    actualizarEstadoAnimacionAudio();
     // Al volver al mapa, volver a música de inicio
     if (isMusicEnabled) {
         const nacionalidadManual = document.getElementById('nacionalidad').value;
@@ -570,8 +1053,8 @@ function actualizarImagenSlider() {
         });
     }
     
-    // Al cambiar la imagen, leemos el nuevo relato automáticamente de forma hablada
-    readSection('relato');
+    // Al cambiar la imagen, leemos el nuevo relato automáticamente de forma hablada (ELIMINADO)
+    // readSection('relato');
 }
 
 async function obtenerClima(ciudad, lat, lon) {
@@ -605,13 +1088,98 @@ async function obtenerHistoriaWiki(comunidad) {
         const query = queryMap[comunidad] || comunidad;
         const resp = await fetch(`https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`);
         const data = await resp.json();
-        return data.extract || "Sabiduría transmitida por vía oral.";
-    } catch (e) { return "Explorando raíces ancestrales..."; }
+        
+        let wikiSummary = data.extract || "Sabiduría transmitida por vía oral.";
+        
+        // AGREGAR ALEATORIEDAD: Mezclar con un hecho local del pool
+        const variantes = HISTORIA_POOL[comunidad] || [];
+        if (variantes.length > 0) {
+            const hechoLatorio = variantes[Math.floor(Math.random() * variantes.length)];
+            return `${hechoLatorio} \n\n Más info: ${wikiSummary}`;
+        }
+        
+        return wikiSummary;
+    } catch (e) { 
+        // Fallback aleatorio si falla Wikipedia
+        const variantes = HISTORIA_POOL[comunidad] || [];
+        if (variantes.length > 0) return variantes[Math.floor(Math.random() * variantes.length)];
+        return "Explorando raíces ancestrales..."; 
+    }
+}
+
+async function crawlearCarpetaImagenes(cultura) {
+    const key = cultura.toLowerCase();
+    const urlsValidas = [];
+    const maxProbes = 15; // Probamos hasta 15 archivos secuenciales para no saturar
+
+    // Promesas en paralelo para mayor velocidad
+    const probes = [];
+    for (let i = 1; i <= maxProbes; i++) {
+        const url = `images/culturas/${key}/${key}${i}.png`;
+        probes.push(
+            fetch(url, { method: 'HEAD' })
+                .then(res => res.ok ? url : null)
+                .catch(() => null)
+        );
+    }
+
+    const results = await Promise.all(probes);
+    results.forEach(u => { if(u) urlsValidas.push(u); });
+
+    // Si no encontró nada, intentar con nombres capitalizados (por si acaso)
+    if (urlsValidas.length === 0) {
+        const keyCap = cultura; 
+        const probesCap = [];
+        for (let i = 1; i <= 5; i++) {
+            const url = `images/culturas/${keyCap.toLowerCase()}/${keyCap}${i}.png`;
+            probesCap.push(fetch(url, { method: 'HEAD' }).then(res => res.ok ? url : null).catch(() => null));
+        }
+        const resCap = await Promise.all(probesCap);
+        resCap.forEach(u => { if(u) urlsValidas.push(u); });
+    }
+
+    // Mapear a formato galería (url + relato)
+    return urlsValidas.map(url => {
+        // Buscar un relato preexistente si el archivo coincide con los originales
+        const fileName = url.split('/').pop();
+        const origData = CULTURAL_VISUALS[cultura] ? CULTURAL_VISUALS[cultura].galeria : null;
+        const relatoPrevio = origData ? origData.find(img => img.url.includes(fileName)) : null;
+
+        return {
+            url: url,
+            relato: relatoPrevio ? relatoPrevio.relato : `Relato ancestral de la cultura ${cultura} en este territorio sagrado.`
+        };
+    });
 }
 
 async function obtenerImagenCultural(comunidad) {
-    const key = comunidad; // Ya viene normalizado
-    return CULTURAL_VISUALS[key] ? CULTURAL_VISUALS[key].galeria : CULTURAL_VISUALS["Kichwa"].galeria;
+    const key = comunidad;
+    if (!cacheGaleriasCultura[key]) {
+        cacheGaleriasCultura[key] = await crawlearCarpetaImagenes(key);
+    }
+    
+    let poolGaleria = cacheGaleriasCultura[key];
+    if (poolGaleria.length === 0) {
+        poolGaleria = CULTURAL_VISUALS[key] ? CULTURAL_VISUALS[key].galeria : CULTURAL_VISUALS["Kichwa"].galeria;
+    }
+    
+    const vistosLaUltimaVez = storageRepo.getImg(key);
+    
+    let frescos = poolGaleria.filter(img => !vistosLaUltimaVez.includes(img.url));
+    let seleccionados = [];
+    
+    if (frescos.length >= 4) {
+        seleccionados = getRandomItems(frescos, 4);
+    } else {
+        seleccionados = [...frescos];
+        const extras = getRandomItems(poolGaleria.filter(img => vistosLaUltimaVez.includes(img.url)), 4 - seleccionados.length);
+        seleccionados = seleccionados.concat(extras);
+    }
+    
+    seleccionados = getRandomItems(seleccionados, seleccionados.length);
+    storageRepo.setImg(key, seleccionados.map(img => img.url));
+    
+    return seleccionados;
 }
 
 function calcularFaseLunar(date) {
@@ -635,31 +1203,53 @@ function actualizarFondoDinamico(clima) {
     const badge = document.getElementById('climate-badge');
 
     overlay.className = '';
-    rainBox.innerHTML = '';
-    rainBox.style.display = 'none';
+    if (rainBox) {
+        rainBox.innerHTML = '';
+        rainBox.style.display = 'none';
+    }
+
+    // El funcionamiento depende del texto descriptivo (como pidió el usuario)
+    const descText = (clima.desc || "").toLowerCase();
+    let effectiveCond = clima.condicion;
+
+    if (descText.includes('lluvia') || descText.includes('llovizna') || descText.includes('tormenta')) {
+        effectiveCond = 'Lluvia';
+    } else if (descText.includes('niebla') || descText.includes('neblina') || descText.includes('bruma') || descText.includes('humedad')) {
+        effectiveCond = 'Niebla';
+    } else if (descText.includes('viento') || descText.includes('ventarrón')) {
+        effectiveCond = 'Viento';
+    } else if (descText.includes('despejado') || descText.includes('sol')) {
+        effectiveCond = 'Despejado';
+    }
 
     // 1. Efecto Noche
     if (clima.isNight) overlay.classList.add('night-mode');
 
-    // 2. Efectos Específicos
-    if (clima.condicion === 'Lluvia') {
+    // 2. Aplicar Efectos basados en la condición efectiva
+    if (effectiveCond === 'Lluvia') {
         overlay.classList.add('rain');
-        rainBox.style.display = 'block';
-        generarLluvia(rainBox, 80); // Más gotas para realismo
+        if (rainBox) {
+            rainBox.style.display = 'block';
+            generarLluvia(rainBox, 80);
+        }
         if (badge) badge.textContent = "🌧️ Lluvia detectada";
-    } else if (clima.condicion === 'Niebla') {
-        rainBox.style.display = 'block';
-        generarNiebla(rainBox);
-        if (badge) badge.textContent = "🌫️ Niebla / Neblina";
-    } else if (clima.condicion === 'Viento' || (clima.viento > 5)) {
-        rainBox.style.display = 'block';
-        generarViento(rainBox, 25); // Más partículas
+    } else if (effectiveCond === 'Niebla') {
+        if (rainBox) {
+            rainBox.style.display = 'block';
+            generarNiebla(rainBox);
+        }
+        if (badge) badge.textContent = "🌫️ Niebla / Humedad";
+    } else if (effectiveCond === 'Viento') {
+        if (rainBox) {
+            rainBox.style.display = 'block';
+            generarViento(rainBox, 25);
+        }
         if (badge) badge.textContent = "💨 Vientos fuertes";
-    } else if (clima.icon.includes('01')) {
+    } else if (effectiveCond === 'Despejado') {
         overlay.classList.add('sun-glow');
         if (badge) badge.textContent = "☀️ Cielo Despejado";
     } else {
-        if (badge) badge.textContent = "☁️ " + clima.desc;
+        if (badge) badge.textContent = "☁️ " + (clima.desc || "Nublado");
     }
 
     if (badge) badge.style.display = 'block';
@@ -736,48 +1326,45 @@ function toggleError() {
     document.getElementById('error-panel').classList.toggle('hidden');
 }
 
-function actualizarDescripcionCosmovision(nac) {
+function actualizarDescripcionCosmovision(nac, conAudio = true) {
     const container = document.getElementById('cosmovision-desc-container');
     const text = document.getElementById('cosmovision-desc');
     
-    // Limpiamos el container y paramos lectura de voz anterior si hay
-    detenerLecturaVoz();
+    // Solo detenemos la voz anterior si realmente vamos a sonar algo nuevo
+    if (conAudio) {
+        detenerLecturaVoz();
+    }
 
     if (nac && typeof REGLAS_ANCESTRALES !== 'undefined' && REGLAS_ANCESTRALES[nac]) {
         text.textContent = `"${REGLAS_ANCESTRALES[nac].descripcion}"`;
         container.classList.remove('hidden');
         
-        // Si la musica esta activada, cambiar la musica a la nacionalidad seleccionada
-        if(isMusicEnabled) {
+        if (conAudio && isMusicEnabled) {
             reproducirMusicaNacionalidad(nac);
-            
-            // Tratamos de leerlo, aunque puede ser bloqueado si no hay interaccion.
-            // Si el user interactuó (cambió el select, isMusicEnabled = true), leerá.
-            setTimeout(() => {
-                const utterance = new SpeechSynthesisUtterance(`"${REGLAS_ANCESTRALES[nac].descripcion}"`);
-                utterance.lang = 'es-ES';
-                utterance.rate = 1.0;
-                utterance.pitch = 1.0;
-                utterance.volume = 1.0; // Volumen maximo
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.speak(utterance);
-                }
-            }, 500);
         }
-
     } else { container.classList.add('hidden'); }
 }
 
 function toggleSaber(id) {
     const content = document.getElementById(id);
+    if (!content) return;
     const wasActive = content.classList.contains('active');
+    
+    // Resetear todos
     document.querySelectorAll('.saber-content').forEach(el => {
         el.classList.remove('active');
         el.style.maxHeight = null;
     });
+    document.querySelectorAll('.saber-btn').forEach(b => b.classList.remove('active'));
+
+    // Activar si estaba cerrado
     if (!wasActive) {
         content.classList.add('active');
-        content.style.maxHeight = "200px";
+        content.style.maxHeight = "500px";
+        
+        // Buscar el botón que disparó el evento para darle clase active
+        const btn = document.querySelector(`[onpointerdown*="toggleSaber('${id}')"]`);
+        if (btn) btn.classList.add('active');
     }
 }
 
@@ -796,21 +1383,40 @@ function actualizarVestimenta(provincia, markerObj) {
 
     const svgIcon = getPegmanSVG(region);
 
+    // Preservar el label que ya existe en el marker
+    const markerElement = markerObj ? markerObj.getElement() : null;
+    let ciudadLabel = "";
+    if (markerElement) {
+        const labelDiv = markerElement.querySelector('.marker-label');
+        if (labelDiv) ciudadLabel = labelDiv.textContent;
+    }
+
     const customPersonIcon = L.divIcon({
         className: 'person-marker custom-outfit',
-        html: `<div class="person-marker-content">${svgIcon}</div>`,
-        iconSize: [60, 80],
-        iconAnchor: [30, 75]
+        html: `<div class="person-marker-content">${svgIcon}</div><div class="marker-label">${ciudadLabel}</div>`,
+        iconSize: [80, 100],
+        iconAnchor: [40, 95]
     });
 
     markerObj.setIcon(customPersonIcon);
+
+    // Sincronizar el icono del header con el mismo muñequito (misma región / vestimenta)
+    const identityIcon = document.querySelector('.identity-tag-main .identity-icon');
+    if (identityIcon) {
+        identityIcon.innerHTML = svgIcon;
+        identityIcon.style.width = '54px';
+        identityIcon.style.height = '54px';
+        identityIcon.classList.add('moving');
+    }
 }
 
 function getPegmanSVG(region) {
     const baseBody = `
-        <ellipse cx="50" cy="120" rx="20" ry="8" fill="rgba(0,0,0,0.3)" />
-        <path d="M 35 115 L 35 55 C 35 35, 65 35, 65 55 L 65 115 Z" fill="#fcd34d"/>
-        <circle cx="50" cy="35" r="22" fill="#fcd34d"/>
+        <ellipse cx="50" cy="125" rx="24" ry="10" fill="rgba(0,0,0,0.35)" />
+        <path d="M 32 115 L 32 50 C 32 32, 68 32, 68 50 L 68 115 Z" fill="#fcd34d" />
+        <path d="M 40 80 C 46 68, 54 68, 60 80 C 56 88, 44 88, 40 80 Z" fill="#f59e0b" opacity="0.4" />
+        <circle cx="50" cy="38" r="24" fill="#fcd34d" />
+        <path d="M 28 35 Q 50 12 72 35" fill="#1e293b" opacity="0.45" />
     `;
     
     let faces = `
@@ -901,36 +1507,103 @@ function getPegmanSVG(region) {
 
 function toggleMusic() {
     const btn = document.getElementById('btn-music');
-    isMusicEnabled = !isMusicEnabled;
-    
-    if (isMusicEnabled) {
+    if (!btn) return;
+
+    if (isMusicEnabled && audioActual && !audioActual.paused) {
+        // PAUSAR
+        isMusicEnabled = false;
+        audioActual.pause();
+        btn.classList.add('paused');
+        btn.classList.remove('active');
+        setAudioButtonMode(null, 'idle');
+    } else if (audioActual && isMusicEnabled === false) {
+        // RESUMIR
+        isMusicEnabled = true;
+        audioActual.play();
+        btn.classList.remove('paused');
         btn.classList.add('active');
-        btn.innerHTML = '<i class="fas fa-volume-up"></i>';
+        setAudioButtonMode(btn, 'listening');
+    } else {
+        // EMPEZAR NUEVO
+        isMusicEnabled = true;
+        btn.classList.add('active');
+        btn.classList.remove('paused');
         
         let nacLimpia = 'Default';
-        // Verificar si la hoja de resultados está abierta
         if (document.getElementById('results-sheet').classList.contains('active')) {
             const nac = document.getElementById('res-nacionalidad').textContent;
             nacLimpia = (nac && nac !== '--') ? nac : 'Default';
         } else {
-            // Sino, usar la seleccionada en el combo
             const nacCombo = document.getElementById('nacionalidad').value;
             nacLimpia = nacCombo || 'Default';
         }
-
         reproducirMusicaNacionalidad(nacLimpia);
-    } else {
-        btn.classList.remove('active');
-        btn.innerHTML = '<i class="fas fa-music"></i>';
-        if (audioActual) audioActual.pause();
     }
+
+    actualizarEstadoAnimacionAudio();
+}
+
+// ----------------------------------------------------------------------------------
+// NUEVA FUNCIONALIDAD: ACTIVIDADES CLIMÁTICAS (NO INVASIVA)
+// ----------------------------------------------------------------------------------
+
+const ACTIVIDADES_CLIMATICAS_DB = {
+    "Sierra": {
+        "10-15": "En climas fríos (entre 10°C y 15°C), las familias andinas se reúnen junto al fogón para tejer ponchos y relatar mitos antiguos.",
+        "15-20": "A temperatura fresca (15°C a 20°C), es tiempo ideal para preparar el suelo y sembrar tubérculos bajo el sol de la mañana.",
+        "20-25": "Con el sol andino templado (20°C a 25°C), se realizan las cosechas mayores y el zapateo ritual de gratitud a la Pachamama.",
+        "25-30": "Ante un calor inusual (25°C a 30°C), se realizan baños ceremoniales en vertientes sagradas para purificar el espíritu."
+    },
+    "Costa": {
+        "20-25": "A clima fresco (20°C a 25°C), las comunidades montubias aprovechan para la pesca artesanal y la recolección de frutos.",
+        "25-30": "Con calor moderado (25°C a 30°C), se secan los granos de cacao fino de aroma al sol para capturar su esencia ancestral.",
+        "30-35": "Bajo el sol intenso (30°C a 35°C), se busca el manglar para la recolección de conchas al ritmo de los arrullos del mar.",
+        "35-40": "En temperaturas extremas (35°C a 40°C), la vida gira en torno a los ríos, compartiendo historias y refrescantes jugos de coco."
+    },
+    "Amazonía": {
+        "20-25": "Cuando la selva refresca (20°C a 25°C), los maestros recolectan el uña de gato y resinas medicinales que fluyen mejor con la sombra.",
+        "25-30": "A clima cálido (25°C a 30°C), es época de siembra de yuca y preparación de las chacras invocando a los espíritus protectores.",
+        "30-35": "Con el calor húmedo (30°C a 35°C), se fabrican herramientas de chonta y se realizan ceremonias de visión en el corazón del bosque.",
+        "35-40": "Bajo el sol ardiente (35°C a 40°C), los guerreros se pintan con achiote como escudo espiritual y físico contra el calor del día."
+    },
+    "Default": {
+        "all": "En este territorio ecuatoriano, las comunidades conectan con los ciclos de la naturaleza para sus labores de vida y sabiduría."
+    }
+};
+
+function actualizarSeccionActividadesClimaticas(temperatura, cultura) {
+    const textoEl = document.getElementById('clima-actividad-texto');
+    if (!textoEl) return;
+
+    // Determinar región basada en cultura
+    let region = "Default";
+    const c = cultura.toLowerCase();
+    if (c.includes('kichwa')) region = "Sierra";
+    else if (c.includes('montubio') || c.includes('afro') || c.includes('tsáchila')) region = "Costa";
+    else if (c.includes('shuar') || c.includes('waorani')) region = "Amazonía";
+    else if (c.includes('galapagu')) region = "Costa"; // Aproximación climática similar
+
+    // Encontrar el rango de temperatura
+    const t = parseFloat(temperatura);
+    let rango = "all";
+    if (t < 15) rango = "10-15";
+    else if (t < 20) rango = "15-20";
+    else if (t < 25) rango = "20-25";
+    else if (t < 30) rango = "25-30";
+    else if (t < 35) rango = "30-35";
+    else rango = "35-40";
+
+    const db = ACTIVIDADES_CLIMATICAS_DB[region] || ACTIVIDADES_CLIMATICAS_DB["Default"];
+    const mensaje = db[rango] || db["all"] || ACTIVIDADES_CLIMATICAS_DB["Default"]["all"];
+
+    textoEl.innerHTML = `<span class="gold-bold">Actual: ${temperatura}°C</span><br>${mensaje.replace('pertenece a rango', '')}`;
 }
 
 async function reproducirMusicaNacionalidad(nac) {
     const url = MUSIC_DATABASE[nac] || MUSIC_DATABASE['Default'];
     
-    // Si ya está sonando esa canción, no la reiniciamos
-    if (audioActual && audioActual.src.includes(url.replace('.', '')) && !audioActual.paused) return;
+    // Si ya está cargada esa canción, no la reiniciamos (permitimos resume)
+    if (audioActual && audioActual.src.includes(url.replace('.', ''))) return;
 
     try {
         if (audioActual) {
@@ -940,17 +1613,23 @@ async function reproducirMusicaNacionalidad(nac) {
 
         audioActual = new Audio(url);
         audioActual.loop = true;
-        audioActual.volume = 0.2; // Volumen de la música bajado a 0.2 para que el relato se escuche mejor
+        audioActual.volume = musicVolume; 
 
         audioActual.addEventListener("error", (e) => {
             console.error("Error del audio. Ruta:", url);
             console.error("currentSrc:", audioActual.currentSrc);
             console.error("error code:", audioActual.error ? audioActual.error.code : "sin código");
+            actualizarEstadoAnimacionAudio();
         });
+
+        audioActual.addEventListener('play', actualizarEstadoAnimacionAudio);
+        audioActual.addEventListener('pause', actualizarEstadoAnimacionAudio);
+        audioActual.addEventListener('ended', actualizarEstadoAnimacionAudio);
 
         if (isMusicEnabled) {
             await audioActual.play();
             console.log("Sonando correctamente:", url);
+            actualizarEstadoAnimacionAudio();
         }
     } catch (error) {
         console.error("Error al reproducir audio:", error);
@@ -958,51 +1637,113 @@ async function reproducirMusicaNacionalidad(nac) {
     }
 }
 
-// Lectura de Voz (Text-to-Speech)
+
+// TTS: Estado interno como ÚNICA fuente de verdad (Fix definitivo para Chrome)
+// Estados posibles por sección: 'idle' | 'playing' | 'paused'
+// currentReadingType: qué sección está activa (o null)
 window.readSection = function(type) {
-    detenerLecturaVoz();
-    
-    let text = "";
-    if (type === 'sabidurias') {
-        text = `Sabidurías de la cultura ${document.getElementById('res-nacionalidad').textContent}. `;
-        text += "Labores de tierra: " + document.getElementById('card-labores').textContent + ". ";
-        text += "Rituales y danzas: " + document.getElementById('card-rituales').textContent + ". ";
-        text += "Vestimenta: " + document.getElementById('card-vestimenta').textContent + ". ";
-        text += "Gastronomía: " + document.getElementById('card-gastronomia').textContent + ". ";
-        text += "Medicina: " + document.getElementById('card-medicina').textContent + ". ";
-    } else if (type === 'relato') {
-        text = document.getElementById('res-myth-text').textContent;
-    } else if (type === 'historia') {
-        text = "Historia del pueblo. " + document.getElementById('card-historia').textContent;
+    const synth = window.speechSynthesis;
+
+    // --- CASO: Cambio de sección ---
+    // Si hay una sección activa o pausada diferente, la cancelamos por completo
+    if (currentReadingType && currentReadingType !== type) {
+        synth.cancel();
+        sectionStates[currentReadingType] = 'idle';
+        currentReadingType = null;
+        // Caemos al bloque de PLAY para la nueva sección (no hay return)
     }
 
-    if (!text || text.includes('...')) return;
+    // --- MÁQUINA DE ESTADOS (usando sectionStates como verdad) ---
+    const estado = sectionStates[type] || 'idle';
 
-    if (!('speechSynthesis' in window)) {
-        alert("Lo siento, tu navegador no soporta lectura de voz.");
+    if (estado === 'playing') {
+        // ── PLAYING → PAUSED ──
+        synth.pause();
+        sectionStates[type] = 'paused';
+        actualizarEstadoAnimacionAudio();
         return;
     }
 
+    if (estado === 'paused') {
+        // ── PAUSED → PLAYING (resume nativo) ──
+        synth.resume();
+        sectionStates[type] = 'playing';
+        actualizarEstadoAnimacionAudio();
+        return;
+    }
+
+    // ── IDLE → PLAYING (inicio desde cero) ──
+    synth.cancel(); // Limpiar cualquier rastro anterior
+
+    let text = '';
+    if (type === 'relato') {
+        text = document.getElementById('res-myth-text')?.textContent || '';
+    } else if (type === 'historia') {
+        text = 'Historia. ' + (document.getElementById('card-historia')?.textContent || '');
+    } else if (type === 'sabidurias') {
+        const lexicoNode = document.getElementById('card-lexico');
+        const palabraOriginal = lexicoNode ? lexicoNode.innerHTML.split('<br>')[0].replace(/"/g, '') : '';
+        const significadoOriginal = lexicoNode ? lexicoNode.querySelector('small')?.textContent || '' : '';
+        const lexicoText = palabraOriginal ? `Léxico Sagrado. El término es ${palabraOriginal}, que significa ${significadoOriginal}.` : '';
+
+        text = 'Sabidurías. '
+            + 'Labores de tierra: ' + (document.getElementById('card-labores')?.textContent || '') + '. '
+            + 'Rituales y danzas: ' + (document.getElementById('card-rituales')?.textContent || '') + '. '
+            + 'Vestimenta: ' + (document.getElementById('card-vestimenta')?.textContent || '') + '. '
+            + 'Gastronomía: ' + (document.getElementById('card-gastronomia')?.textContent || '') + '. '
+            + 'Medicina: ' + (document.getElementById('card-medicina')?.textContent || '') + '. '
+            + lexicoText;
+    } else if (type === 'clima') {
+        text = 'Actividades según el clima. ' + (document.getElementById('clima-actividad-texto')?.textContent || '');
+    }
+
+    if (!text.trim()) return;
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'es-ES';
-    utterance.rate = 1.0; // Velocidad de la voz ajustada para mejor claridad
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0; // Volumen al máximo
+    utterance.rate = 1.0;
 
-    // Feedback visual
-    const btn = window.event ? window.event.currentTarget : document.querySelector(`button[onclick="readSection('${type}')"]`);
-    if (btn && btn.classList) btn.classList.add('active');
-    
+    currentReadingType = type;
+    sectionStates[type] = 'playing';
+
+    utterance.onstart = () => {
+        sectionStates[type] = 'playing';
+        actualizarEstadoAnimacionAudio();
+    };
+    utterance.onpause = () => {
+        sectionStates[type] = 'paused';
+        actualizarEstadoAnimacionAudio();
+    };
+    utterance.onresume = () => {
+        sectionStates[type] = 'playing';
+        actualizarEstadoAnimacionAudio();
+    };
     utterance.onend = () => {
-        if (btn && btn.classList) btn.classList.remove('active');
+        // Terminó de forma natural: resetear todo
+        sectionStates[type] = 'idle';
+        currentReadingType = null;
+        actualizarEstadoAnimacionAudio();
+    };
+    utterance.onerror = () => {
+        sectionStates[type] = 'idle';
+        currentReadingType = null;
+        actualizarEstadoAnimacionAudio();
     };
 
-    window.speechSynthesis.speak(utterance);
+    synth.speak(utterance);
+    actualizarEstadoAnimacionAudio();
 };
 
 function detenerLecturaVoz() {
     if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
     }
-    document.querySelectorAll('.speak-btn').forEach(b => b.classList.remove('active'));
+    speechState = 'idle';
+    currentReadingType = null;
+    
+    document.querySelectorAll('.speak-btn').forEach(b => {
+        b.classList.remove('active', 'speaking', 'paused');
+    });
+    
+    actualizarEstadoAnimacionAudio();
 }
